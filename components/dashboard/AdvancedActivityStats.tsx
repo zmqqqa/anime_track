@@ -177,24 +177,40 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
         },
         series: [
             {
-                type: 'bar',
+                type: 'line',
+                smooth: 0.4,
                 data: statsData.data.map((item) => item.value),
-                barWidth: scale === 'month' ? '42%' : '32%',
+                symbol: 'circle',
+                symbolSize: 6,
+                showSymbol: true,
+                lineStyle: {
+                    width: 2.5,
+                    color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
+                        { offset: 0, color: '#c084fc' },
+                        { offset: 1, color: '#818cf8' },
+                    ]),
+                    shadowBlur: 8,
+                    shadowColor: 'rgba(192,132,252,0.4)',
+                },
                 itemStyle: {
-                    borderRadius: [10, 10, 4, 4],
+                    color: '#c084fc',
+                    borderColor: '#0d1117',
+                    borderWidth: 2,
+                },
+                areaStyle: {
                     color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        { offset: 0, color: '#7dd3fc' },
-                        { offset: 0.45, color: '#38bdf8' },
-                        { offset: 1, color: '#2563eb' },
+                        { offset: 0, color: 'rgba(192,132,252,0.28)' },
+                        { offset: 0.55, color: 'rgba(129,140,248,0.08)' },
+                        { offset: 1, color: 'rgba(109,40,217,0)' },
                     ]),
                 },
                 emphasis: {
                     itemStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: '#c4f1ff' },
-                            { offset: 0.42, color: '#67e8f9' },
-                            { offset: 1, color: '#3b82f6' },
-                        ]),
+                        color: '#e9d5ff',
+                        borderColor: '#fff',
+                        borderWidth: 2,
+                        shadowBlur: 12,
+                        shadowColor: 'rgba(196,181,253,0.6)',
                     },
                     scale: true,
                 },
@@ -226,47 +242,42 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                <div className="bg-zinc-900/40 border border-white/10 rounded-[28px] p-5 flex flex-col justify-between group hover:bg-zinc-900/60 transition-all duration-300 surface-highlight">
-                     <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">总看番集数</span>
-                     <div className="mt-3 flex items-baseline gap-2">
-                         <span className="text-3xl font-bold font-mono text-zinc-100 tracking-tighter">{statsData.totalEpisodes}</span>
-                         <span className="text-xs text-zinc-500 font-bold">EP</span>
-                     </div>
+            <div className="grid grid-cols-2 xl:grid-cols-4 divide-x divide-white/[0.06]">
+                <div className="flex flex-col gap-1 px-5 first:pl-0">
+                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">总看番集数</span>
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="text-3xl font-bold font-mono text-zinc-100 tracking-tighter">{statsData.totalEpisodes}</span>
+                        <span className="text-xs text-zinc-500 font-bold">EP</span>
+                    </div>
                 </div>
-                <div className="bg-zinc-900/40 border border-white/10 rounded-[28px] p-5 flex flex-col justify-between group hover:bg-zinc-900/60 transition-all duration-300 surface-highlight">
-                     <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">预估时长</span>
-                     <div className="mt-3 flex items-baseline gap-2">
-                         <span className="text-3xl font-bold font-mono text-blue-400 tracking-tighter">{Math.round(statsData.totalMinutes / 60)}</span>
-                         <span className="text-xs text-zinc-500 font-bold">HRS</span>
-                     </div>
+                <div className="flex flex-col gap-1 px-5">
+                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">预估时长</span>
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="text-3xl font-bold font-mono text-blue-400 tracking-tighter">{Math.round(statsData.totalMinutes / 60)}</span>
+                        <span className="text-xs text-zinc-500 font-bold">HRS</span>
+                    </div>
                 </div>
-                <div className="bg-zinc-900/40 border border-white/10 rounded-[28px] p-5 flex flex-col justify-between group hover:bg-zinc-900/60 transition-all duration-300 surface-highlight">
-                     <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">活跃效率</span>
-                     <div className="mt-3 flex items-baseline gap-2">
-                         <span className="text-3xl font-bold font-mono text-green-400 tracking-tighter">
-                             {(statsData.totalEpisodes / averagePerUnit).toFixed(1)}
-                        </span>
-                         <span className="text-xs text-zinc-500 font-bold">EP/D</span>
-                     </div>
+                <div className="flex flex-col gap-1 px-5">
+                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">活跃效率</span>
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="text-3xl font-bold font-mono text-green-400 tracking-tighter">{(statsData.totalEpisodes / averagePerUnit).toFixed(1)}</span>
+                        <span className="text-xs text-zinc-500 font-bold">EP/D</span>
+                    </div>
                 </div>
-                <div className="bg-zinc-900/40 border border-white/10 rounded-[28px] p-5 flex flex-col justify-between group hover:bg-zinc-900/60 transition-all duration-300 surface-highlight">
-                     <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">高频时段</span>
-                     <div className="mt-3 flex items-baseline gap-2">
-                         <span className="text-3xl font-bold text-amber-300 tracking-tight">{statsData.mostActiveWindow[0]}</span>
-                     </div>
-                     <div className="text-[11px] mt-2 text-zinc-500">出现 {statsData.mostActiveWindow[1]} 次观看记录</div>
+                <div className="flex flex-col gap-1 px-5">
+                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">高频时段</span>
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="text-2xl font-bold text-amber-300 tracking-tight">{statsData.mostActiveWindow[0]}</span>
+                        <span className="text-[10px] text-zinc-600 pb-0.5">× {statsData.mostActiveWindow[1]}</span>
+                    </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px] gap-5">
                 <div className="h-[320px] rounded-[28px] border border-white/5 bg-[linear-gradient(180deg,rgba(8,14,13,0.66),rgba(7,11,11,0.3))] p-4 md:p-5">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                            <div className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Timeline View</div>
-                            <div className="mt-1 text-sm text-zinc-300">采用 ECharts 轴提示，浮层挂到页面层级，不再被卡片遮挡。</div>
-                        </div>
-                        <div className="hidden md:flex rounded-full border border-cyan-300/15 bg-cyan-300/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-cyan-100/85">
+                        <div className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Viewer Activity</div>
+                        <div className="hidden md:flex rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-violet-200/75">
                             {scale === 'week' ? '7 Day Window' : scale === 'month' ? 'Monthly Timeline' : 'Yearly Timeline'}
                         </div>
                     </div>
@@ -278,22 +289,22 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
                     />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 xl:flex xl:flex-col gap-3 xl:h-64">
-                    <div className="flex-1 rounded-[24px] border border-white/8 bg-white/[0.02] px-4 py-3 flex flex-col justify-between">
+                <div className="grid grid-cols-1 sm:grid-cols-3 xl:flex xl:flex-col gap-2 xl:h-64">
+                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06]">
                         <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">Peak Point</div>
                         <div className="flex items-end justify-between gap-2">
                             <span className="text-xl font-display text-zinc-100 leading-tight">{statsData.peakPoint.label}</span>
                             <span className="text-[10px] text-zinc-500 font-mono pb-0.5">max {statsData.peakPoint.value} EP</span>
                         </div>
                     </div>
-                    <div className="flex-1 rounded-[24px] border border-white/8 bg-white/[0.02] px-4 py-3 flex flex-col justify-between">
+                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06]">
                         <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">Active Days</div>
                         <div className="flex items-end justify-between gap-2">
                             <span className="text-xl font-mono text-emerald-300">{statsData.activeDays}</span>
                             <span className="text-[10px] text-zinc-500 pb-0.5">有记录天</span>
                         </div>
                     </div>
-                    <div className="flex-1 rounded-[24px] border border-white/8 bg-white/[0.02] px-4 py-3 flex flex-col justify-between">
+                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06]">
                         <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">Library Cov.</div>
                         <div className="flex items-end justify-between gap-2">
                             <span className="text-xl font-mono text-cyan-300">{statsData.libraryCoverage}%</span>

@@ -3,6 +3,7 @@ import { JetBrains_Mono, Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
 import "./globals.css";
 import SidebarLayout from "@/components/SidebarLayout";
 import { Providers } from "@/components/Providers";
+import RouteLoadingBar from "@/components/shared/RouteLoadingBar";
 
 const sans = Noto_Sans_SC({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body className={`${sans.variable} ${serif.variable} ${mono.variable} antialiased`}>
         <Providers>
+          <RouteLoadingBar />
           <SidebarLayout>
             {children}
           </SidebarLayout>

@@ -2,7 +2,30 @@ const fs = require('fs');
 const path = require('path');
 const { config: loadEnv } = require('dotenv');
 
-const projectRoot = path.join(__dirname, '../..');
+function resolveProjectRoot() {
+  const cwd = process.cwd();
+  if (fs.existsSync(path.join(cwd, 'package.json'))) {
+    return cwd;
+  }
+
+  let currentDir = __dirname;
+  while (true) {
+    if (fs.existsSync(path.join(currentDir, 'package.json'))) {
+      return currentDir;
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+
+    currentDir = parentDir;
+  }
+
+  return path.join(__dirname, '../..');
+}
+
+const projectRoot = resolveProjectRoot();
 
 let loaded = false;
 

@@ -47,7 +47,7 @@ export function PieChart({ data, size = 168 }: PieChartProps) {
     },
     title: total > 0 ? {
       text: `${total}`,
-      subtext: '已统计年份',
+      subtext: '部作品',
       left: 'center',
       top: '39%',
       textStyle: {

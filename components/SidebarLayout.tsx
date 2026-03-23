@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import { navigationItems, config, type NavigationSection } from '@/lib/config';
 
@@ -18,8 +18,11 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const showLocalSetup = process.env.NODE_ENV !== 'production';
+  const isAuthPage = pathname === '/login' || pathname === '/register';
 
   const isGuest = (session?.user as SessionUser | undefined)?.role === 'guest';
   const userName = typeof session?.user?.name === 'string' ? session.user.name : '追番记录者';
@@ -38,6 +41,29 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
     }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    setIsMobileMenuOpen(false);
+
+    try {
+      const response = await signOut({
+        redirect: false,
+        callbackUrl: '/login',
+      });
+
+      const targetUrl = response?.url || '/login';
+      router.replace(targetUrl);
+      router.refresh();
+      window.location.assign(targetUrl);
+    } catch {
+      setIsSigningOut(false);
+    }
+  };
+
+  if (isAuthPage) {
+    return <main className="min-h-screen">{children}</main>;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-transparent relative">
@@ -215,14 +241,15 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
                   <p className="mt-1 text-sm text-zinc-200">{userName}</p>
                 </div>
                 <button 
-                  onClick={() => signOut()}
-                  className="text-xs flex items-center justify-between gap-2 rounded-2xl border border-white/5 bg-white/[0.03] px-3 py-2.5 text-zinc-300 hover:text-red-300 hover:border-red-400/20 hover:bg-red-400/5 transition-colors cursor-pointer"
+                  onClick={handleSignOut}
+                  disabled={isSigningOut}
+                  className="text-xs flex items-center justify-between gap-2 rounded-2xl border border-white/5 bg-white/[0.03] px-3 py-2.5 text-zinc-300 hover:text-red-300 hover:border-red-400/20 hover:bg-red-400/5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <span className="flex items-center gap-2">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
-                    退出登录
+                    {isSigningOut ? '正在退出...' : '退出登录'}
                   </span>
                   <span className="text-[10px] uppercase tracking-[0.28em]">Leave</span>
                 </button>
@@ -241,8 +268,9 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
                   </Link>
                 )}
                 <button 
-                  onClick={() => signOut()}
-                  className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl border border-white/5 bg-white/[0.03] text-zinc-300 hover:text-red-300 hover:border-red-400/20 hover:bg-red-400/5 transition-colors cursor-pointer"
+                  onClick={handleSignOut}
+                  disabled={isSigningOut}
+                  className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl border border-white/5 bg-white/[0.03] text-zinc-300 hover:text-red-300 hover:border-red-400/20 hover:bg-red-400/5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="退出登录"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

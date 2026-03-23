@@ -13,13 +13,13 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAnimeData } from '@/hooks/useAnimeData';
 import { useHistoryData } from '@/hooks/useHistoryData';
-import { AnimeRecord, AnimeStatus, statusLabels, statusColors } from '@/lib/dashboard-types';
+import { AnimeRecord } from '@/lib/dashboard-types';
 import { formatPremiere, formatUpdateDate, formatWatchMoment } from '@/lib/formatters';
 import DashboardHeader from './dashboard/DashboardHeader';
 import LazyRender from './shared/LazyRender';
 
 // 动态导入组件，减少初始包体积
-const PieChart = dynamic(() => import('./dashboard/PieChart').then(mod => mod.PieChart), { ssr: false });
+const YearBarChart = dynamic(() => import('./dashboard/YearBarChart').then(mod => mod.YearBarChart), { ssr: false });
 const ActivityFeed = dynamic(() => import('./dashboard/ActivityFeed'), { ssr: false });
 const AdvancedActivityStats = dynamic(() => import('./dashboard/AdvancedActivityStats'), { ssr: false });
 const PREMIERE_PALETTE = ['#5dd6f2', '#56d39c', '#8da6ff', '#f4bf62', '#fb7185', '#a78bfa', '#f97316'] as const;
@@ -39,41 +39,13 @@ export default function Dashboard() {
     const isLoading = aLoading || hLoading;
     const isRefreshing = aRefreshing || hRefreshing;
 
-    const { currentStreak, longestStreak, weeklyEpisodes } = useMemo(() => {
-        const daySet = new Set(parsedHistory.map((h) => h.dateStr));
-        const sortedDays = Array.from(daySet).sort();
-
-        let longest = 0;
-        let streak = 0;
-        for (let i = 0; i < sortedDays.length; i++) {
-            if (i === 0) {
-                streak = 1;
-            } else {
-                const prev = new Date(sortedDays[i - 1]);
-                const curr = new Date(sortedDays[i]);
-                const diff = (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
-                streak = diff === 1 ? streak + 1 : 1;
-            }
-            longest = Math.max(longest, streak);
-        }
-
-        let current = 0;
-        const cursor = new Date();
-        while (current < 400) {
-            const iso = cursor.toISOString().split('T')[0];
-            if (!daySet.has(iso)) break;
-            current += 1;
-            cursor.setDate(cursor.getDate() - 1);
-        }
-
+    const { weeklyEpisodes } = useMemo(() => {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setHours(0, 0, 0, 0);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
         const recentEpisodes = parsedHistory.filter((h) => h.dateObj >= sevenDaysAgo).length;
 
         return {
-            currentStreak: current,
-            longestStreak: longest,
             weeklyEpisodes: recentEpisodes,
         };
     }, [parsedHistory]);
@@ -205,7 +177,7 @@ export default function Dashboard() {
 
         return Array.from(yearCount.entries())
             .sort((left, right) => left[0] - right[0])
-            .slice(-7)
+            .slice(-20)
             .map(([year, count]) => ({ year, count }));
     }, [animeList]);
 
@@ -220,13 +192,6 @@ export default function Dashboard() {
 
     const tagBarData = useMemo(() => animeTagStats.slice(0, 8), [animeTagStats]);
     const tagBarMax = tagBarData.reduce((max, item) => Math.max(max, item.count), 1);
-
-    const statusCards = (Object.keys(animeStats.byStatus) as AnimeStatus[]).map((status) => ({
-        status,
-        label: statusLabels[status],
-        value: animeStats.byStatus[status],
-        color: statusColors[status],
-    }));
 
     return (
         <div className="p-4 lg:p-8 space-y-4 lg:space-y-6 animate-fade-in pb-20 relative">
@@ -367,32 +332,87 @@ export default function Dashboard() {
             </LazyRender>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 relative z-10">
-                <div className="lg:col-span-8 flex flex-col gap-4">
+                {/* 左列（主列） */}
+                <div className="lg:col-span-8 flex flex-col gap-4 lg:gap-5">
                     <LazyRender fallback={<div className="glass-panel rounded-[32px] h-96 animate-pulse" />}>
-                        <div className="glass-panel p-6 lg:p-7 rounded-[32px] flex-1 bg-gradient-to-br from-zinc-900/40 via-transparent to-transparent min-h-[420px]">
+                        <div className="glass-panel p-6 lg:p-7 rounded-[32px] bg-gradient-to-br from-zinc-900/40 via-transparent to-transparent min-h-[420px]">
                             <AdvancedActivityStats history={parsedHistory} animeList={animeList} />
                         </div>
                     </LazyRender>
 
-                    <LazyRender fallback={<div className="glass-panel rounded-[28px] h-36 animate-pulse" />}>
-                        <div className="glass-panel p-4 lg:p-5 rounded-[28px]">
-                            <div className="text-[10px] uppercase tracking-[0.26em] text-zinc-500 mb-3">当前追番状态</div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {statusCards.map((status) => (
-                                    <div key={`top-${status.status}`} className="p-4 rounded-2xl bg-white/[0.03] border border-white/8 flex items-center justify-between">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: status.color }} />
-                                            <span className="text-sm font-medium text-zinc-300 truncate">{status.label}</span>
-                                        </div>
-                                        <span className="text-2xl font-bold text-zinc-100 tracking-tight">{status.value}</span>
-                                    </div>
-                                ))}
+                    <LazyRender fallback={<div className="glass-panel rounded-[32px] h-[300px] animate-pulse" />}>
+                        <div className="glass-panel p-6 lg:p-7 rounded-[32px] flex flex-col overflow-visible">
+                            <div className="flex items-center gap-2 mb-1">
+                                <CalendarDaysIcon className="w-4 h-4 text-sky-300" />
+                                <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-300">作品开播时间分布</h2>
                             </div>
+                            <p className="text-[10px] text-zinc-600 mb-2">基于每部作品的开播日期字段统计</p>
+                            {premierePieData.length > 0 ? (
+                                <div className="flex-1 w-full min-h-[220px] mt-2 pb-2">
+                                    <YearBarChart data={premierePieData} height={220} />
+                                </div>
+                            ) : (
+                                <div className="flex-1 flex items-center">
+                                    <div className="text-sm text-zinc-500">开播日期字段还不够多，先在详情页补全几部作品即可生成分布。</div>
+                                </div>
+                            )}
                         </div>
                     </LazyRender>
+
+                    <div className="glass-panel p-6 lg:p-7 rounded-[32px] flex flex-col">
+                        <div className="flex items-center justify-between gap-4 mb-5">
+                            <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                                <ClockIcon className="w-4 h-4 text-sky-300" />
+                                最近在看作品
+                            </h2>
+                            <Link href="/anime/timeline" className="text-[10px] font-bold text-zinc-500 hover:text-white transition-colors uppercase tracking-widest">
+                                查看时间线
+                            </Link>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4 auto-rows-max content-start pr-1">
+                            {recentWatching.map(({ record, anime }) => (
+                                <Link
+                                    key={`recent-${record.id}`}
+                                    href={`/anime/${record.animeId}`}
+                                    className="group rounded-[22px] border border-transparent bg-white/[0.03] overflow-hidden hover:border-sky-300/20 transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01]"
+                                >
+                                    <div
+                                        className="h-44 bg-zinc-900/70 bg-cover bg-center"
+                                        style={anime?.coverUrl ? { backgroundImage: `linear-gradient(180deg, rgba(7,17,15,0.1), rgba(7,17,15,0.9)), url(${anime.coverUrl})` } : undefined}
+                                    />
+                                    <div className="p-4">
+                                        <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Recent Watch</div>
+                                        <div className="mt-1 text-base text-zinc-100 truncate">{anime?.title ?? record.animeTitle}</div>
+                                        <div className="text-xs text-zinc-500 truncate">{anime?.originalTitle ?? '来自观看历史'}</div>
+                                        <div className="mt-3 flex items-center justify-between gap-2">
+                                            <span className="inline-flex rounded-full border border-sky-300/20 bg-sky-300/10 px-2.5 py-1 text-[11px] text-sky-100">
+                                                第 {record.episode} 集
+                                            </span>
+                                            <span className="text-[11px] text-zinc-500 font-mono">{formatWatchMoment(record.dateObj)}</span>
+                                        </div>
+                                    </div>
+                                </Link>
+                            ))}
+                            {Array.from({ length: Math.max(0, 9 - recentWatching.length) }).map((_, index) => (
+                                <div
+                                    key={`recent-empty-${index}`}
+                                    className="rounded-[22px] border border-transparent bg-white/[0.02] overflow-hidden min-h-[260px]"
+                                >
+                                    <div className="h-44 bg-gradient-to-br from-white/[0.04] to-transparent" />
+                                    <div className="p-4">
+                                        <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-600">Waiting Slot</div>
+                                        <div className="mt-2 text-sm text-zinc-400">最近看得太少啦~</div>
+                                        <div className="text-xs text-zinc-600 mt-1">再看几集，这里会自动补满九宫格</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
-                <div className="lg:col-span-4 space-y-4">
+                {/* 右列（副列） */}
+                <div className="lg:col-span-4 flex flex-col gap-4 lg:gap-5">
                     <LazyRender fallback={<div className="glass-panel rounded-[32px] h-64 animate-pulse" />}>
                         <div className="glass-panel p-5 rounded-[28px] space-y-4">
                             <div className="flex items-center gap-2">
@@ -423,72 +443,13 @@ export default function Dashboard() {
                         </div>
                     </LazyRender>
 
-                    <LazyRender fallback={<div className="glass-panel rounded-[32px] h-72 animate-pulse" />}>
-                        <div className="glass-panel p-5 rounded-[28px] h-[388px] flex flex-col overflow-visible">
-                            <div className="flex items-center gap-2 mb-3">
-                                <CalendarDaysIcon className="w-4 h-4 text-sky-300" />
-                                <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-300">作品开播时间分布</h2>
-                            </div>
-                            <p className="text-[11px] text-zinc-500 mb-3">基于每部作品的开播日期字段统计</p>
-                            {premierePieData.length > 0 ? (
-                                <div className="grid grid-cols-[168px_minmax(0,1fr)] gap-4 items-center flex-1 min-h-0">
-                                    <div className="flex items-center justify-center">
-                                        <PieChart data={premierePieData} size={168} />
-                                    </div>
-                                    <div className="space-y-2 max-h-[276px] overflow-y-auto pr-1">
-                                        {premierePieData.map((item) => (
-                                            <div key={`premiere-${item.label}`} className="flex items-center justify-between gap-2 transition-transform duration-200 hover:scale-[1.02]">
-                                                <div className="flex items-center gap-1.5 min-w-0">
-                                                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                                                    <span className="text-xs text-zinc-300 truncate">{item.label}</span>
-                                                </div>
-                                                <span className="text-xs text-zinc-500 font-mono flex-shrink-0">{item.value} 部</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex-1 flex items-center">
-                                    <div className="text-sm text-zinc-500">开播日期字段还不够多，先在详情页补全几部作品即可生成分布。</div>
-                                </div>
-                            )}
-                        </div>
-                    </LazyRender>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 relative z-10">
-                <div className="lg:col-span-8 space-y-6">
-                    <div className="glass-panel p-8 rounded-[32px]">
-                        <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2 mb-6">
+                    <div className="glass-panel p-6 lg:p-7 rounded-[32px]">
+                        <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2 mb-5">
                             <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]" />
                             观看统计与偏好
                         </h2>
 
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                            <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/10 text-center">
-                                <div className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">总进度</div>
-                                <div className="text-2xl font-bold text-white mt-1 tracking-tight">{animeStats.episodesWatched}</div>
-                                <div className="text-[10px] text-zinc-500 mt-0.5 font-medium tracking-wide">已看集数</div>
-                            </div>
-                            <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/10 text-center">
-                                <div className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">完结率</div>
-                                <div className="text-2xl font-bold text-emerald-400 mt-1 tracking-tight">{animeCompletionRate}%</div>
-                                <div className="text-[10px] text-zinc-500 mt-0.5 font-medium tracking-wide">已看 {animeStats.byStatus.completed}</div>
-                            </div>
-                            <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/10 text-center">
-                                <div className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">当前连续</div>
-                                <div className="text-2xl font-bold text-amber-300 mt-1 tracking-tight">{currentStreak}</div>
-                                <div className="text-[10px] text-zinc-500 mt-0.5 font-medium tracking-wide">最长 {longestStreak} d</div>
-                            </div>
-                            <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/10 text-center">
-                                <div className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">本周效率</div>
-                                <div className="text-2xl font-bold text-sky-300 mt-1 tracking-tight">{weeklyEpisodes}</div>
-                                <div className="text-[10px] text-zinc-500 mt-0.5 font-medium tracking-wide">集/周</div>
-                            </div>
-                        </div>
-
-                        <div className="rounded-[28px] border border-white/8 bg-white/[0.02] p-5 lg:p-6">
+                        <div className="rounded-[24px] bg-white/[0.02] p-5">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">标签分布</h3>
                                 <span className="text-[10px] text-zinc-600">条形图</span>
@@ -514,60 +475,7 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    <div className="glass-panel p-6 lg:p-7 rounded-[32px] h-[660px] flex flex-col">
-                        <div className="flex items-center justify-between gap-4 mb-5">
-                            <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
-                                <ClockIcon className="w-4 h-4 text-sky-300" />
-                                最近在看作品
-                            </h2>
-                            <Link href="/anime/timeline" className="text-[10px] font-bold text-zinc-500 hover:text-white transition-colors uppercase tracking-widest">
-                                查看时间线
-                            </Link>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4 auto-rows-max content-start flex-1 overflow-y-auto pr-1">
-                            {recentWatching.map(({ record, anime }) => (
-                                <Link
-                                    key={`recent-${record.id}`}
-                                    href={`/anime/${record.animeId}`}
-                                    className="group rounded-[22px] border border-white/6 bg-white/[0.03] overflow-hidden hover:border-sky-300/20 transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01]"
-                                >
-                                    <div
-                                        className="h-24 bg-zinc-900/70 bg-cover bg-center"
-                                        style={anime?.coverUrl ? { backgroundImage: `linear-gradient(180deg, rgba(7,17,15,0.1), rgba(7,17,15,0.9)), url(${anime.coverUrl})` } : undefined}
-                                    />
-                                    <div className="p-3.5">
-                                        <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Recent Watch</div>
-                                        <div className="mt-1 text-base text-zinc-100 truncate">{anime?.title ?? record.animeTitle}</div>
-                                        <div className="text-xs text-zinc-500 truncate">{anime?.originalTitle ?? '来自观看历史'}</div>
-                                        <div className="mt-2 flex items-center justify-between gap-2">
-                                            <span className="inline-flex rounded-full border border-sky-300/20 bg-sky-300/10 px-2.5 py-1 text-[11px] text-sky-100">
-                                                第 {record.episode} 集
-                                            </span>
-                                            <span className="text-[11px] text-zinc-500 font-mono">{formatWatchMoment(record.dateObj)}</span>
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
-                            {Array.from({ length: Math.max(0, 9 - recentWatching.length) }).map((_, index) => (
-                                <div
-                                    key={`recent-empty-${index}`}
-                                    className="rounded-[22px] border border-dashed border-white/10 bg-white/[0.015] overflow-hidden min-h-[190px]"
-                                >
-                                    <div className="h-24 bg-gradient-to-br from-white/[0.04] to-transparent" />
-                                    <div className="p-3.5">
-                                        <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-600">Waiting Slot</div>
-                                        <div className="mt-2 text-sm text-zinc-400">最近看得太少啦~</div>
-                                        <div className="text-xs text-zinc-600 mt-1">再看几集，这里会自动补满九宫格</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="lg:col-span-4 space-y-6">
-                    <div className="glass-panel p-7 rounded-[32px]">
+                    <div className="glass-panel p-7 rounded-[32px] flex-shrink-0">
                         <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2 mb-5">
                             <CalendarDaysIcon className="w-4 h-4 text-sky-300" />
                             最近开播作品
@@ -586,15 +494,15 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    <div className="glass-panel p-8 rounded-[32px] flex flex-col h-[520px]">
-                        <div className="flex items-center justify-between mb-6">
+                    <div className="glass-panel p-6 lg:p-7 rounded-[32px] flex flex-col min-h-0 overflow-hidden h-[380px] lg:h-[480px] xl:h-[540px]">
+                        <div className="flex items-center justify-between mb-5 flex-shrink-0">
                             <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)]" />
                                 最近记录
                             </h2>
                             <Link href="/anime/timeline" className="text-[10px] font-bold text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">More →</Link>
                         </div>
-                        <div className="flex-1 overflow-y-auto no-scrollbar pr-2">
+                        <div className="flex-1 min-h-0 overflow-y-auto pr-2 overscroll-contain">
                             <ActivityFeed history={parsedHistory} />
                         </div>
                     </div>
