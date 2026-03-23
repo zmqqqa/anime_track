@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import type { EChartsOption } from 'echarts';
+import ReactECharts from 'echarts-for-react';
 
 interface PieChartItem {
   label: string;
@@ -13,80 +15,92 @@ interface PieChartProps {
   size?: number;
 }
 
-function polarToCartesian(cx: number, cy: number, radius: number, angle: number) {
-  return {
-    x: cx + radius * Math.cos(angle),
-    y: cy + radius * Math.sin(angle),
-  };
-}
+export function PieChart({ data, size = 168 }: PieChartProps) {
+  const chartData = useMemo(() => data.filter((item) => item.value > 0), [data]);
+  const total = useMemo(() => chartData.reduce((sum, item) => sum + item.value, 0), [chartData]);
 
-export function PieChart({ data, size = 128 }: PieChartProps) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const cx = size / 2;
-  const cy = size / 2;
-  const radius = size / 2 - 2;
+  const option = useMemo<EChartsOption>(() => ({
+    animationDuration: 450,
+    tooltip: {
+      trigger: 'item',
+      appendToBody: true,
+      confine: false,
+      backgroundColor: 'rgba(8, 14, 13, 0.96)',
+      borderColor: 'rgba(255,255,255,0.12)',
+      borderWidth: 1,
+      textStyle: {
+        color: '#eef9ff',
+        fontSize: 12,
+        fontFamily: 'var(--font-body), sans-serif',
+      },
+      extraCssText: 'box-shadow: 0 18px 40px rgba(0,0,0,0.35); border-radius: 14px; padding: 10px 12px;',
+      formatter: (params: unknown) => {
+        const item = params as { name: string; value: number; percent: number; color: string };
+        return [
+          `<div style="display:flex; align-items:center; gap:8px; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:#94a3b8;">`,
+          `<span style="width:8px; height:8px; border-radius:999px; background:${item.color}; display:inline-block;"></span>`,
+          `Year Band</div>`,
+          `<div style="margin-top:6px; color:#f8fafc; font-size:14px;">${item.name}</div>`,
+          `<div style="margin-top:4px; color:#cbd5e1;">${item.value} 部作品 · ${item.percent}%</div>`,
+        ].join('');
+      },
+    },
+    title: total > 0 ? {
+      text: `${total}`,
+      subtext: '已统计年份',
+      left: 'center',
+      top: '39%',
+      textStyle: {
+        color: '#e6f7ff',
+        fontSize: 24,
+        fontWeight: 600,
+      },
+      subtextStyle: {
+        color: '#7c8a86',
+        fontSize: 10,
+      },
+    } : undefined,
+    series: [
+      {
+        type: 'pie',
+        radius: ['44%', '72%'],
+        center: ['50%', '50%'],
+        avoidLabelOverlap: true,
+        label: { show: false },
+        labelLine: { show: false },
+        itemStyle: {
+          borderColor: '#091311',
+          borderWidth: 2,
+        },
+        emphasis: {
+          scale: true,
+          scaleSize: 6,
+          itemStyle: {
+            borderColor: 'rgba(255,255,255,0.75)',
+            borderWidth: 2,
+          },
+        },
+        data: chartData.map((item) => ({
+          name: item.label,
+          value: item.value,
+          itemStyle: {
+            color: item.color,
+          },
+        })),
+      },
+    ],
+  }), [chartData, total]);
 
-  const segments = useMemo(() => {
-    const positive = data.filter((item) => item.value > 0);
-    const total = positive.reduce((sum, item) => sum + item.value, 0);
-    if (total <= 0) return [];
-
-    let startAngle = -Math.PI / 2;
-    return positive.map((item) => {
-      const angle = (item.value / total) * Math.PI * 2;
-      const endAngle = startAngle + angle;
-
-      const start = polarToCartesian(cx, cy, radius, startAngle);
-      const end = polarToCartesian(cx, cy, radius, endAngle);
-      const largeArcFlag = angle > Math.PI ? 1 : 0;
-      const d = [
-        `M ${cx} ${cy}`,
-        `L ${start.x} ${start.y}`,
-        `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`,
-        'Z',
-      ].join(' ');
-
-      const middle = (startAngle + endAngle) / 2;
-      const segment = {
-        d,
-        middle,
-        item,
-      };
-
-      startAngle = endAngle;
-      return segment;
-    });
-  }, [cx, cy, data, radius]);
-
-  if (!segments.length) {
+  if (!chartData.length) {
     return (
-      <svg width={size} height={size} className="text-zinc-800">
-        <circle cx={cx} cy={cy} r={radius} fill="currentColor" opacity={0.25} />
-      </svg>
+      <div
+        className="flex items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-sm text-zinc-500"
+        style={{ width: size, height: size }}
+      >
+        暂无数据
+      </div>
     );
   }
 
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {segments.map((segment, index) => {
-        const isActive = activeIndex === index;
-        const offset = isActive ? 4 : 0;
-        const dx = Math.cos(segment.middle) * offset;
-        const dy = Math.sin(segment.middle) * offset;
-
-        return (
-          <path
-            key={`${segment.item.label}-${index}`}
-            d={segment.d}
-            fill={segment.item.color}
-            transform={`translate(${dx}, ${dy}) ${isActive ? `scale(1.02)` : 'scale(1)'}`}
-            style={{ transformOrigin: `${cx}px ${cy}px` }}
-            className="cursor-pointer transition-transform duration-200 hover:brightness-110"
-            onMouseEnter={() => setActiveIndex(index)}
-            onMouseLeave={() => setActiveIndex(null)}
-          />
-        );
-      })}
-    </svg>
-  );
+  return <ReactECharts option={option} notMerge lazyUpdate style={{ width: size, height: size }} />;
 }

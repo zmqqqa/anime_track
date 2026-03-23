@@ -2,10 +2,11 @@ module.exports = {
   apps: [{
     name: 'anime-track',
     cwd: '/home/ubuntu/anime_track',
-    script: 'node_modules/.bin/next',
-    args: 'start -p 3000',
+    script: 'scripts/maintenance/prod_start_guard.js',
     env: {
-      NODE_ENV: 'production'
+      NODE_ENV: 'production',
+      PORT: '3000',
+      HOST: '0.0.0.0'
     },
     node_args: '--max-old-space-size=256',
     instances: 1,

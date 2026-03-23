@@ -8,6 +8,8 @@
 
 # next.js
 /.next/
+/.next-standby/
+/.next-build.lock
 /.next.bak.*/
 /out/
 

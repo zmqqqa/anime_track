@@ -369,7 +369,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 relative z-10">
                 <div className="lg:col-span-8 flex flex-col gap-4">
                     <LazyRender fallback={<div className="glass-panel rounded-[32px] h-96 animate-pulse" />}>
-                        <div className="glass-panel p-6 lg:p-7 rounded-[32px] flex-1 bg-gradient-to-br from-zinc-900/40 via-transparent to-transparent min-h-[360px]">
+                        <div className="glass-panel p-6 lg:p-7 rounded-[32px] flex-1 bg-gradient-to-br from-zinc-900/40 via-transparent to-transparent min-h-[420px]">
                             <AdvancedActivityStats history={parsedHistory} animeList={animeList} />
                         </div>
                     </LazyRender>
@@ -424,18 +424,18 @@ export default function Dashboard() {
                     </LazyRender>
 
                     <LazyRender fallback={<div className="glass-panel rounded-[32px] h-72 animate-pulse" />}>
-                        <div className="glass-panel p-5 rounded-[28px] h-[320px] flex flex-col">
+                        <div className="glass-panel p-5 rounded-[28px] h-[388px] flex flex-col overflow-visible">
                             <div className="flex items-center gap-2 mb-3">
                                 <CalendarDaysIcon className="w-4 h-4 text-sky-300" />
                                 <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-300">作品开播时间分布</h2>
                             </div>
                             <p className="text-[11px] text-zinc-500 mb-3">基于每部作品的开播日期字段统计</p>
                             {premierePieData.length > 0 ? (
-                                <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-4 items-center flex-1">
+                                <div className="grid grid-cols-[168px_minmax(0,1fr)] gap-4 items-center flex-1 min-h-0">
                                     <div className="flex items-center justify-center">
-                                        <PieChart data={premierePieData} size={132} />
+                                        <PieChart data={premierePieData} size={168} />
                                     </div>
-                                    <div className="space-y-2 max-h-[210px] overflow-y-auto pr-1">
+                                    <div className="space-y-2 max-h-[276px] overflow-y-auto pr-1">
                                         {premierePieData.map((item) => (
                                             <div key={`premiere-${item.label}`} className="flex items-center justify-between gap-2 transition-transform duration-200 hover:scale-[1.02]">
                                                 <div className="flex items-center gap-1.5 min-w-0">

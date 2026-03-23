@@ -2,6 +2,10 @@
 
 一个基于 Next.js 14 和 MySQL 的个人动漫追番记录工具。管理番剧条目、追踪观看进度、记录观看历史，并通过仪表盘和时间线直观展示追番数据。
 
+> 第一次在本地部署，建议先看这份新手指引：[docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md)
+
+> 只想最快把页面跑起来：`npm install` -> 配好 `.env.local` -> `npm run dev` -> 打开 `http://localhost:3000/setup`
+
 ## 功能概览
 
 - **番剧管理**：新增、编辑、删除番剧条目，支持封面、简介、声优、标签等完整元数据
@@ -56,6 +60,8 @@ MYSQL_PASSWORD=你的密码
 MYSQL_DATABASE=anime_track
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your_secret
+GUEST_USERNAME=guest
+GUEST_PASSWORD=guest
 ```
 
 可选（元数据 AI 补全）：
@@ -63,6 +69,34 @@ NEXTAUTH_SECRET=your_secret
 ```bash
 DEEPSEEK_API_KEY=your_api_key
 ```
+
+> `DEEPSEEK_API_KEY` 不是启动项目的必需项。不配置它也可以本地跑起来、登录并查看页面，只是 AI 元数据补全会跳过。
+
+### 3.5 本地一键初始化
+
+如果你只是想把项目 clone 到本地后尽快看到完整页面：
+
+1. 准备一个本地 MySQL 实例
+2. 按上面步骤填写 `.env.local`
+3. 执行 `npm install`
+4. 执行 `npm run dev`
+5. 直接打开 `http://localhost:3000/setup`
+6. 点击“一键初始化数据库与示例数据”
+
+如果你在页面里没找到入口，直接访问上面的 `/setup` 地址即可。项目里现在也提供了两个入口：
+
+1. 登录页底部的“打开初始化向导 /setup”
+2. 侧边栏最下面的“本地初始化 /setup”按钮
+
+这个初始化入口会自动：
+
+1. 创建 `MYSQL_DATABASE`
+2. 执行 [database/schema.sql](database/schema.sql)
+3. 导入 [database/seed_anime_data.sql](database/seed_anime_data.sql)
+
+示例数据只包含 `anime` 和 `watch_history`，不包含 `users`。初始化完成后，你可以直接用访客账号 `guest / guest` 登录查看完整页面。
+
+更详细、面向新手的本地部署说明见：[docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md)
 
 ### 4. 恢复数据（可选）
 
@@ -83,6 +117,51 @@ npm run start        # 启动生产服务器
 ```
 
 访问 `http://localhost:3000`。
+
+## 部署建议
+
+个人项目最稳的方式是：
+
+1. 本地开发并验证效果
+2. 提交代码到 Git
+3. 服务器只执行拉取、构建、重启
+
+不建议在正在跑正式站的目录里一边让 AI 改代码，一边直接 `next build` 试错。因为正式服务也依赖同一份 `.next`，构建过程中一旦产物处于半成品状态，PM2 重启就可能直接拉不起服务。
+
+### 服务器一键部署
+
+仓库已提供部署脚本：
+
+```bash
+npm run deploy:prod
+```
+
+它会按顺序执行：
+
+1. 检查 Git 工作区是否干净
+2. `git fetch origin main`
+3. fast-forward 到最新 `main`
+4. 仅在依赖变化时执行 `npm ci`
+5. 执行受保护的 `npm run build`
+6. 重启 PM2 中的 `anime-track`
+7. 用 `http://127.0.0.1:3000/login` 做本机健康检查
+
+如果需要，也可以通过环境变量改部署目标：
+
+```bash
+DEPLOY_BRANCH=main DEPLOY_REMOTE=origin DEPLOY_APP_NAME=anime-track npm run deploy:prod
+```
+
+### 为什么暂时不做全自动发布
+
+全自动发布并不难，但会额外引入：
+
+1. GitHub Actions 或 webhook 服务
+2. 部署密钥 / SSH 凭据管理
+3. 失败重试与回滚策略
+4. 误触发自动上线的风险
+
+对当前这个单人项目，更实用的是先把部署收敛成一条固定命令。后续如果你确认工作流稳定，再把这条脚本挂到 GitHub Actions 上即可。
 
 ## 页面路由
 
@@ -191,6 +270,7 @@ node scripts/maintenance/export_anime_seed.js backups/snapshot.sql   # 导出到
 npm run dev                           # 启动开发服务器
 npm run dev:guard                     # 带样式守护的开发模式
 npm run build                         # 构建
+npm run deploy:prod                   # 服务器拉代码、构建并重启 PM2
 npm run start                         # 生产模式启动
 npm run lint                          # ESLint 检查
 

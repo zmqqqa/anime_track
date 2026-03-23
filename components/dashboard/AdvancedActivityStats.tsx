@@ -1,7 +1,10 @@
 
 "use client";
 
-import { useMemo, useState, memo } from 'react';
+import { memo, useMemo, useState } from 'react';
+import * as echarts from 'echarts';
+import type { EChartsOption } from 'echarts';
+import ReactECharts from 'echarts-for-react';
 import { AnimeRecord, ParsedWatchHistory } from '@/lib/dashboard-types';
 
 export default memo(function AdvancedActivityStats({ history, animeList }: { history: ParsedWatchHistory[], animeList: AnimeRecord[] }) {
@@ -94,6 +97,110 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
 
     const maxValue = Math.max(...statsData.data.map(d => d.value), 1);
     const averagePerUnit = scale === 'week' ? 7 : scale === 'month' ? 30 : 365;
+    const chartOption = useMemo<EChartsOption>(() => ({
+        animationDuration: 500,
+        animationEasing: 'cubicOut',
+        grid: {
+            left: 34,
+            right: 12,
+            top: 24,
+            bottom: scale === 'month' ? 30 : 18,
+            containLabel: true,
+        },
+        tooltip: {
+            trigger: 'axis',
+            appendToBody: true,
+            confine: false,
+            backgroundColor: 'rgba(8, 14, 13, 0.96)',
+            borderColor: 'rgba(125, 211, 252, 0.28)',
+            borderWidth: 1,
+            textStyle: {
+                color: '#e5f7ff',
+                fontFamily: 'var(--font-body), sans-serif',
+                fontSize: 12,
+            },
+            extraCssText: 'box-shadow: 0 18px 40px rgba(0,0,0,0.38); border-radius: 14px; padding: 10px 12px;',
+            axisPointer: {
+                type: 'shadow',
+                shadowStyle: {
+                    color: 'rgba(93, 214, 242, 0.08)',
+                    borderRadius: 16,
+                },
+            },
+            formatter: (params: unknown) => {
+                const point = Array.isArray(params) ? params[0] as { axisValueLabel: string; data: number } : null;
+                if (!point) return '';
+                return [
+                    `<div style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:#7dd3fc; opacity:0.9;">${statsData.title}</div>`,
+                    `<div style="margin-top:6px; display:flex; align-items:flex-end; gap:8px;">`,
+                    `<span style="font-size:22px; line-height:1; font-weight:600; color:#f8fafc;">${point.data}</span>`,
+                    `<span style="font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#a5f3fc;">EP</span>`,
+                    `</div>`,
+                    `<div style="margin-top:4px; color:#cbd5e1;">${point.axisValueLabel}</div>`,
+                ].join('');
+            },
+        },
+        xAxis: {
+            type: 'category',
+            data: statsData.data.map((item) => item.label),
+            boundaryGap: true,
+            axisTick: { show: false },
+            axisLine: {
+                lineStyle: {
+                    color: 'rgba(255,255,255,0.08)',
+                },
+            },
+            axisLabel: {
+                color: '#7c8a86',
+                fontSize: 10,
+                margin: 12,
+                interval: scale === 'month' ? 4 : 0,
+            },
+        },
+        yAxis: {
+            type: 'value',
+            minInterval: 1,
+            splitNumber: 3,
+            max: maxValue < 4 ? 4 : undefined,
+            axisLabel: {
+                color: '#6b7b76',
+                fontSize: 10,
+            },
+            axisTick: { show: false },
+            axisLine: { show: false },
+            splitLine: {
+                lineStyle: {
+                    color: 'rgba(255,255,255,0.07)',
+                    type: 'dashed',
+                },
+            },
+        },
+        series: [
+            {
+                type: 'bar',
+                data: statsData.data.map((item) => item.value),
+                barWidth: scale === 'month' ? '42%' : '32%',
+                itemStyle: {
+                    borderRadius: [10, 10, 4, 4],
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: '#7dd3fc' },
+                        { offset: 0.45, color: '#38bdf8' },
+                        { offset: 1, color: '#2563eb' },
+                    ]),
+                },
+                emphasis: {
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#c4f1ff' },
+                            { offset: 0.42, color: '#67e8f9' },
+                            { offset: 1, color: '#3b82f6' },
+                        ]),
+                    },
+                    scale: true,
+                },
+            },
+        ],
+    }), [maxValue, scale, statsData.data, statsData.title]);
 
     return (
         <div className="space-y-6">
@@ -153,54 +260,22 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px] gap-5">
-                <div className="h-64 flex items-end gap-1.5 pl-12 pr-4 py-6 bg-zinc-950/20 rounded-[28px] border border-white/5 relative group/chart overflow-hidden">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(93,214,242,0.12),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_28%)]" />
-                {/* Y-Axis Labels */}
-                    <div className="absolute left-3 inset-y-6 flex flex-col justify-between text-[9px] font-mono text-zinc-500 pointer-events-none">
-                        <span className="flex items-center gap-1">{maxValue}<span className="text-[7px] opacity-50">EP</span></span>
-                        <span className="flex items-center gap-1">{Math.round(maxValue / 2)}</span>
-                        <span>0</span>
-                    </div>
-
-                    <div className="absolute inset-0 flex flex-col justify-between p-6 pointer-events-none opacity-10">
-                        <div className="border-t border-zinc-500 w-full h-px ml-6"></div>
-                        <div className="border-t border-zinc-500 w-full h-px border-dashed ml-6"></div>
-                        <div className="border-t border-zinc-500 w-full h-px border-dashed ml-6"></div>
-                        <div className="border-t border-zinc-500 w-full h-px ml-6"></div>
-                    </div>
-
-                    {statsData.data.map((item, i) => (
-                        <div 
-                            key={i} 
-                            className="flex-1 flex flex-col items-center gap-3 group relative h-full justify-end z-10"
-                        >
-                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white text-zinc-950 text-[11px] font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-30 whitespace-nowrap shadow-[0_10px_20px_rgba(0,0,0,0.4)] translate-y-2 group-hover:translate-y-0">
-                                {item.label}: {item.value} EP
-                                <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-white rotate-45"></div>
-                            </div>
-                            
-                            <div 
-                                className={`w-full max-w-[16px] rounded-full transition-all duration-1000 ease-[cubic-bezier(0.34,1.56,0.64,1)] relative z-10 ${
-                                    item.value > 0 
-                                    ? 'bg-gradient-to-t from-blue-600 via-sky-500 to-cyan-300 shadow-[0_0_24px_rgba(56,189,248,0.28)] group-hover:from-blue-400 group-hover:to-cyan-200' 
-                                    : 'bg-zinc-800/40'
-                                }`}
-                                style={{ 
-                                    height: `${Math.max((item.value / maxValue) * 100, item.value > 0 ? 5 : 2)}%`,
-                                }}
-                            >
-                                {item.value > 0 && (
-                                    <div className="absolute inset-x-0 top-0 h-1/2 bg-white/20 rounded-t-full" />
-                                )}
-                            </div>
-                            
-                            {(scale !== 'month' || i % 5 === 0) && (
-                                <span className={`text-[9px] font-bold font-mono transition-colors duration-300 ${item.value > 0 ? 'text-zinc-300' : 'text-zinc-600'}`}>
-                                    {item.label}
-                                </span>
-                            )}
+                <div className="h-[320px] rounded-[28px] border border-white/5 bg-[linear-gradient(180deg,rgba(8,14,13,0.66),rgba(7,11,11,0.3))] p-4 md:p-5">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                            <div className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Timeline View</div>
+                            <div className="mt-1 text-sm text-zinc-300">采用 ECharts 轴提示，浮层挂到页面层级，不再被卡片遮挡。</div>
                         </div>
-                    ))}
+                        <div className="hidden md:flex rounded-full border border-cyan-300/15 bg-cyan-300/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-cyan-100/85">
+                            {scale === 'week' ? '7 Day Window' : scale === 'month' ? 'Monthly Timeline' : 'Yearly Timeline'}
+                        </div>
+                    </div>
+                    <ReactECharts
+                        option={chartOption}
+                        notMerge
+                        lazyUpdate
+                        style={{ height: '250px', width: '100%' }}
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 xl:flex xl:flex-col gap-3 xl:h-64">

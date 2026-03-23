@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -90,6 +91,12 @@ export default function LoginPage() {
               <a href="/register" className="text-purple-400 hover:text-purple-300">
                 立即注册
               </a>
+            </p>
+            <p className="mt-3 text-zinc-500 text-sm">
+              本地第一次启动？
+              <Link href="/setup" className="ml-1 text-emerald-400 hover:text-emerald-300">
+                打开初始化向导 /setup
+              </Link>
             </p>
           </div>
         </form>
