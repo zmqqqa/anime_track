@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { createAnimeRecord, findAnimeByTitle, getAnimeRecord, updateAnimeRecord, CreateAnimeDTO, listAnimeRecordsByExactTitle, AnimeRecord } from '@/lib/anime';
+import { createAnimeRecord, findAnimeByTitle, updateAnimeRecord, CreateAnimeDTO, listAnimeRecordsByExactTitle, AnimeRecord } from '@/lib/anime';
 import { addBatchWatchHistory, addWatchHistory } from '@/lib/history';
 import { parseQuickRecordBatch, type ParsedQuickRecordIntent } from '@/lib/ai';
 import { enrichAnimeInput } from '@/lib/anime-enrichment';
@@ -82,6 +82,8 @@ async function processQuickRecordIntent(
 
     if (input.status === 'completed' && input.totalEpisodes) {
       input.progress = input.totalEpisodes;
+    } else if (input.status === 'completed' && input.progress === 0) {
+      input.progress = 1;
     }
     if (!input.startDate && input.progress > 0 && input.status !== 'plan_to_watch' && recordedDateString) {
       input.startDate = recordedDateString;
@@ -97,7 +99,7 @@ async function processQuickRecordIntent(
       await addWatchHistory(created.id, created.title, created.progress, watchedAt);
     }
 
-    const entry = (await getAnimeRecord(created.id)) || created;
+    const entry = created;
     return {
       created: true, replay: false, rewatchTag, historyWritten: shouldWriteHistory, parsed,
       recognition: buildRecognition(parsed, entry, entry.progress, !anime, shouldWriteHistory, recordedDateString, entry.status),
@@ -159,7 +161,7 @@ async function processQuickRecordIntent(
     }
   }
 
-  const finalEntry = (await getAnimeRecord(entry.id)) || entry;
+  const finalEntry = entry;
   return {
     created: false, replay: historyWritten && targetProgress <= anime.progress, rewatchTag, historyWritten, parsed,
     recognition: buildRecognition(parsed, finalEntry, finalEntry.progress, false, historyWritten, recordedDateString, finalEntry.status),

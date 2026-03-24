@@ -31,7 +31,9 @@ function resolveRewatchTag(tags?: string[]): string | undefined {
 
 export default function AnimeCard({ item, onEdit, updateProgress, isAdmin = false }: AnimeCardProps) {
   const isCompleted = item.status === 'completed';
-  const progressPercent = item.totalEpisodes ? (item.progress / item.totalEpisodes) * 100 : 0;
+  const progressPercent = item.totalEpisodes
+    ? (item.progress / item.totalEpisodes) * 100
+    : isCompleted ? 100 : 0;
   const rewatchTag = resolveRewatchTag(item.tags);
 
   return (
@@ -41,11 +43,20 @@ export default function AnimeCard({ item, onEdit, updateProgress, isAdmin = fals
         <Link href={`/anime/${item.id}`} className="block h-full">
           {item.coverUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.coverUrl} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 opacity-70 group-hover:opacity-100" />
+            <img
+              src={item.coverUrl}
+              alt={item.title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 opacity-70 group-hover:opacity-100"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = 'none';
+                target.parentElement!.classList.add('anime-cover-fallback');
+              }}
+            />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-zinc-700">
-              <MagnifyingGlassIcon className="w-8 h-8 mb-2" />
-              <span className="text-xs uppercase tracking-tighter">No Cover</span>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-zinc-800/80 to-zinc-900">
+              <span className="text-3xl mb-2 opacity-40">🎬</span>
+              <span className="text-[10px] text-zinc-600 uppercase tracking-wider">No Cover</span>
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60" />
@@ -94,6 +105,7 @@ export default function AnimeCard({ item, onEdit, updateProgress, isAdmin = fals
           <button 
             onClick={() => onEdit(item)}
             className="absolute top-2 right-2 p-1.5 rounded-full bg-black/40 border border-white/10 text-white/50 hover:text-white hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-all"
+            aria-label="编辑"
           >
             <EllipsisHorizontalIcon className="w-4 h-4" />
           </button>
@@ -130,6 +142,7 @@ export default function AnimeCard({ item, onEdit, updateProgress, isAdmin = fals
               onClick={() => updateProgress(item.id, item.progress - 1, item.totalEpisodes)}
               disabled={item.progress <= 0}
               className="flex-1 py-1.5 rounded-lg bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition text-[10px] disabled:opacity-30"
+              aria-label="减一集"
             >
               -1
             </button>
@@ -141,6 +154,7 @@ export default function AnimeCard({ item, onEdit, updateProgress, isAdmin = fals
                <button 
                   onClick={() => updateProgress(item.id, item.progress + 1, item.totalEpisodes)}
                   className="flex-[2] py-1.5 rounded-lg bg-white text-black hover:opacity-90 transition text-[10px] font-bold flex items-center justify-center gap-1 shadow-sm"
+                  aria-label="看一集"
                 >
                   <PlusIcon className="w-3 h-3" /> 看一集
                 </button>

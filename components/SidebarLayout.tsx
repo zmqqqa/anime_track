@@ -70,7 +70,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
       {/* 手机端头部 */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-zinc-950/85 backdrop-blur-xl border-b border-white/5 z-30 flex items-center justify-between px-4">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-300/70">Private archive</p>
+          <p className="text-[10px] text-emerald-300/70">番剧记录</p>
           <h1 className="text-lg font-display tracking-tight text-zinc-100">{config.appName}</h1>
         </div>
         <button
@@ -110,14 +110,11 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
             <div className="flex items-start justify-between gap-3">
               {!collapsed && (
                 <div className="space-y-2">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.3em] text-emerald-200/80">
-                    Anime Archive
+                  <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] text-emerald-200/80">
+                    番剧追踪
                   </div>
                   <div>
                     <h1 className="text-xl font-display tracking-tight text-zinc-100">{config.appName}</h1>
-                    <p className="text-xs leading-5 text-zinc-400 max-w-[14rem]">
-                      把观看记录、评分和作品元数据收进同一座静态番剧馆。
-                    </p>
                   </div>
                 </div>
               )}
@@ -141,19 +138,11 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
                 </svg>
               </button>
             </div>
-            {!collapsed && (
-              <div className="mt-4 flex items-center justify-between gap-3 text-[11px] text-zinc-400">
-                <span className="font-mono uppercase tracking-[0.22em] text-zinc-500">{config.version}</span>
-                <div className="flex items-center gap-2">
-                  {isGuest && (
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.24em] text-zinc-300">
-                      访客模式
-                    </span>
-                  )}
-                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.24em] text-emerald-200/80">
-                    {config.startDate}
-                  </span>
-                </div>
+            {!collapsed && isGuest && (
+              <div className="mt-3">
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.24em] text-zinc-400">
+                  访客模式
+                </span>
               </div>
             )}
           </div>
@@ -183,7 +172,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
                         : 'text-zinc-400 border-transparent hover:bg-white/[0.04] hover:text-zinc-200 hover:border-white/5 hover:translate-x-1'
                       }
                     `}
-                    title={item.description}
+                    title={collapsed ? item.label : item.description}
                   >
                     {isActive && (
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-emerald-300 rounded-r-full shadow-[0_0_14px_rgba(86,211,156,0.6)]" />

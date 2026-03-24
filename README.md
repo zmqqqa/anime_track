@@ -15,7 +15,7 @@
 - **仪表盘**：追番统计、状态分布饼图、观看连续天数、每周速度、活动流、标签热度
 - **季度视图**：按首播日期自动归类到冬/春/夏/秋季度
 - **图鉴视图**：声优排行、评分分布、集数长度分析、元数据完整度
-- **元数据补全**：从 Bangumi / Jikan 拉取，DeepSeek AI 做兜底
+- **元数据补全**：从 Bangumi / Jikan 拉取，AI 做兗底
 - **鉴权**：基于 NextAuth 的本地登录，支持管理员和访客角色
 
 ## 技术栈
@@ -29,7 +29,7 @@
 | 图标 | Heroicons |
 | 数据库 | MySQL (mysql2/promise) |
 | 鉴权 | NextAuth.js (Credentials + Guest) |
-| AI | DeepSeek API (可选) |
+| AI | 兼容 OpenAI 接口的大模型（可选） |
 | 外部数据 | Bangumi API、Jikan API |
 
 ## 快速开始
@@ -67,10 +67,12 @@ GUEST_PASSWORD=guest
 可选（元数据 AI 补全）：
 
 ```bash
-DEEPSEEK_API_KEY=your_api_key
+AI_API_KEY=your_api_key
+AI_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
+AI_MODEL=glm-4-flash
 ```
 
-> `DEEPSEEK_API_KEY` 不是启动项目的必需项。不配置它也可以本地跑起来、登录并查看页面，只是 AI 元数据补全会跳过。
+> `AI_API_KEY` 不是启动项目的必需项。不配置它也可以本地跑起来、登录并查看页面，只是 AI 元数据补全会跳过。也兼容旧的 `DEEPSEEK_API_KEY`。
 
 ### 3.5 本地一键初始化
 
@@ -216,14 +218,19 @@ lib/
   history.ts            观看历史读写
   anime-enrichment.ts   元数据补全（Provider + AI）
   anime-provider.ts     Bangumi / Jikan 接口
-  ai.ts                 DeepSeek 集成
+  ai.ts                 AI 集成（兼容 OpenAI 接口）
   chinese-parser.ts     CJK 文本解析
   metadata/             AI 数据源、Provider 数据源、合并策略
 database/
   schema.sql            建表语句
   seed_anime_data.sql   共享数据种子（anime + watch_history）
   migrations/           数据库迁移脚本
-scripts/maintenance/    维护脚本（见下方）
+scripts/
+  shared/               公共模块（db_env.js）
+  enrich/               元数据富化流水线（3 步）
+  db/                   数据库管理工具
+  deploy/               开发/生产部署脚本
+  repair/               数据修复与诊断
 docs/                   架构文档、维护手册
 backups/                数据库备份文件
 ```
@@ -251,7 +258,7 @@ backups/                数据库备份文件
 **完整备份**（包含所有表，基于 mysqldump）：
 
 ```bash
-node scripts/maintenance/backup_db.js
+node scripts/db/backup_db.js
 ```
 
 备份文件保存在 `backups/` 目录，自动保留最近 7 份。
@@ -259,8 +266,8 @@ node scripts/maintenance/backup_db.js
 **纯数据导出**（SQL INSERT 脚本，不依赖 mysqldump）：
 
 ```bash
-npm run db:export-anime-seed                                         # 导出到默认路径
-node scripts/maintenance/export_anime_seed.js backups/snapshot.sql   # 导出到指定路径
+npm run db:export-anime-seed                                     # 导出到默认路径
+node scripts/db/export_anime_seed.js backups/snapshot.sql        # 导出到指定路径
 ```
 
 ## npm 脚本速查
@@ -278,37 +285,40 @@ npm run lint                          # ESLint 检查
 npm run db:apply-sql                  # 执行指定 SQL 文件
 npm run db:init-with-anime-data       # 初始化：schema + 种子数据
 npm run db:export-anime-seed          # 导出当前数据为种子文件
+npm run db:full-backup                # 全量 SQL 导出（含 users）
 
-# 元数据补全
-npm run anime:backfill-metadata       # 预览补全结果（dry-run）
-npm run anime:backfill-metadata:write # 写入数据库
-npm run anime:backfill-premiere-date  # 首播日期补全（dry-run）
-npm run anime:backfill-premiere-date:write
-npm run anime:backfill-cast           # 声优信息补全（dry-run）
-npm run anime:backfill-cast:write
+# 元数据富化（三步流水线）
+npm run anime:enrich-titles           # 第 1 步：AI 标题标准化（dry-run）
+npm run anime:enrich-titles:write     # 第 1 步：写入数据库
+npm run anime:enrich-metadata         # 第 2 步：API + AI 元数据补全（dry-run）
+npm run anime:enrich-metadata:write   # 第 2 步：写入数据库
+npm run anime:enrich-cast             # 第 3 步：声优信息补全（dry-run）
+npm run anime:enrich-cast:write       # 第 3 步：写入数据库
 
 # 测试
 npm run test:smoke:api                # API 冒烟测试
 ```
 
-## 元数据补全
+## 元数据富化
 
-脚本默认 dry-run，只补空字段，不覆盖手工录入的内容。
+三步流水线，全部手动运行，默认 dry-run，只补空字段：
 
-**补全策略**：Provider-first（Bangumi → Jikan），AI 兜底（DeepSeek，需配置 `DEEPSEEK_API_KEY`）。
+1. **`enrich_titles`** — AI 标准化标题（生成官方中文名 + 日文原名），并发 5 路
+2. **`enrich_metadata`** — 用标准化标题查 Bangumi/Jikan 补 score、totalEpisodes、summary、tags 等，AI 兜底，并发 3 路
+3. **`enrich_cast`** — 查 Bangumi/Jikan 补声优列表，AI 生成中文别名，并发 3 路
 
 ```bash
-# 仅补评分、首播、总集数，关闭 AI
-node scripts/maintenance/backfill_anime_metadata.js --write --no-ai --fields=score,premiereDate,totalEpisodes
+# 第 1 步：标题标准化（需要 AI_API_KEY）
+npm run anime:enrich-titles:write
 
-# 限制条数 + 延迟
-node scripts/maintenance/backfill_anime_metadata.js --write --limit=30 --delay=1200
+# 第 2 步：元数据补全（仅 API，不用 AI）
+node scripts/enrich/enrich_metadata.js --write --no-ai
 
-# 首播日期单独处理
-npm run anime:backfill-premiere-date:write -- --limit=20 --delay=1200
+# 第 3 步：声优（不生成别名）
+node scripts/enrich/enrich_cast.js --write --no-aliases
 
-# 指定 ID 强制覆盖
-node scripts/maintenance/backfill_premiere_date.js --write --force --ids=12,34,56
+# 指定 ID + 强制覆盖
+node scripts/enrich/enrich_metadata.js --write --force --ids=12,34,56
 ```
 
 > 评分来自 Jikan（MAL 评分），非 AI 生成；手工填写的评分在非 `--force` 模式下不会被覆盖。

@@ -271,3 +271,38 @@ select,
     scroll-behavior: auto !important;
   }
 }
+
+/* 骨架屏 shimmer 动画 */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* 封面图加载失败 fallback */
+.anime-cover-fallback {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(39, 39, 42, 0.8), rgba(24, 24, 27, 1));
+}
+
+.anime-cover-fallback::after {
+  content: '🎬';
+  font-size: 2rem;
+  opacity: 0.35;
+}

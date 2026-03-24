@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
-const { createDbConfig } = require('./db_env');
+const { createDbConfig } = require('../shared/db_env');
 
 async function runMigrations() {
   const connection = await mysql.createConnection(createDbConfig({ multipleStatements: true }));

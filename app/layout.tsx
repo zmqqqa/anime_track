@@ -4,6 +4,8 @@ import "./globals.css";
 import SidebarLayout from "@/components/SidebarLayout";
 import { Providers } from "@/components/Providers";
 import RouteLoadingBar from "@/components/shared/RouteLoadingBar";
+import Toast from "@/components/shared/Toast";
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
 const sans = Noto_Sans_SC({
   subsets: ["latin"],
@@ -39,9 +41,12 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body className={`${sans.variable} ${serif.variable} ${mono.variable} antialiased`}>
         <Providers>
+          <Toast />
           <RouteLoadingBar />
           <SidebarLayout>
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
           </SidebarLayout>
         </Providers>
       </body>

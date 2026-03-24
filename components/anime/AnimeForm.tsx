@@ -2,6 +2,7 @@
 
 import { fetchAnimeMetadata } from '@/lib/anime-provider';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import type { AnimeStatus, AnimeFormInitialData } from '@/lib/anime-shared';
 import { statusLabels } from '@/lib/dashboard-types';
 
@@ -36,7 +37,7 @@ export default function AnimeForm({
 
   const fetchCover = async (silent = false) => {
     if (!title) {
-        if (!silent) alert('请先输入番剧名称');
+        if (!silent) toast.error('请先输入番剧名称');
         return;
     }
     setIsFetchingCover(true);
@@ -47,10 +48,10 @@ export default function AnimeForm({
             if (metadata.totalEpisodes && !totalEpisodes) setTotalEpisodes(String(metadata.totalEpisodes));
             if (metadata.isFinished !== undefined) setIsFinished(metadata.isFinished);
         } else if (!silent) {
-             alert('未找到相关动漫信息');
+             toast('未找到相关动漫信息', { icon: 'ℹ️' });
         }
     } catch {
-        if (!silent) alert('获取失败，请稍后再试');
+        if (!silent) toast.error('获取失败，请稍后再试');
     } finally {
         setIsFetchingCover(false);
     }
@@ -87,9 +88,12 @@ export default function AnimeForm({
       if (res.ok) {
           loadItems();
           resetForm();
+          toast.success(editingId ? '已保存' : '已添加');
+      } else {
+          toast.error('操作失败');
       }
         } catch {
-      alert('操作失败');
+      toast.error('操作失败');
     }
   };
 

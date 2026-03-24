@@ -22,8 +22,8 @@ const { fetchAiAnimeMetadata } = aiMetadataSource as unknown as {
   } | null>;
 };
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-const DEEPSEEK_MODEL = 'deepseek-chat';
+const AI_API_URL = process.env.AI_API_URL?.trim() || 'https://api.deepseek.com/chat/completions';
+const AI_MODEL = process.env.AI_MODEL?.trim() || 'deepseek-chat';
 
 export interface EnrichedAnimeData {
   officialTitle: string;
@@ -78,13 +78,13 @@ export interface ParsedQuickRecordBatch {
   records: ParsedQuickRecordIntent[];
 }
 
-type DeepSeekMessage = {
+type AiMessage = {
   role: 'system' | 'user' | 'assistant';
   content: string;
 };
 
 function getApiKey(): string {
-  return process.env.DEEPSEEK_API_KEY?.trim() || '';
+  return process.env.AI_API_KEY?.trim() || process.env.DEEPSEEK_API_KEY?.trim() || '';
 }
 
 function escapeRegExp(value: string): string {
@@ -391,21 +391,21 @@ function normalizeQuickRecordBatchPayload(payload: Record<string, unknown>): Par
   return { records };
 }
 
-async function requestDeepSeekJson<T>(messages: DeepSeekMessage[], temperature = 0.2): Promise<T | null> {
+async function requestAiJson<T>(messages: AiMessage[], temperature = 0.2): Promise<T | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
     return null;
   }
 
   try {
-    const response = await fetch(DEEPSEEK_API_URL, {
+    const response = await fetch(AI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
+        model: AI_MODEL,
         messages,
         temperature,
         response_format: { type: 'json_object' },
@@ -415,7 +415,7 @@ async function requestDeepSeekJson<T>(messages: DeepSeekMessage[], temperature =
 
     if (!response.ok) {
       const detail = await response.text();
-      console.error('DeepSeek request failed:', response.status, detail);
+      console.error('AI request failed:', response.status, detail);
       return null;
     }
 
@@ -427,7 +427,7 @@ async function requestDeepSeekJson<T>(messages: DeepSeekMessage[], temperature =
 
     return JSON.parse(content) as T;
   } catch (error) {
-    console.error('DeepSeek request error:', error);
+    console.error('AI request error:', error);
     return null;
   }
 }
@@ -462,7 +462,7 @@ export async function buildVoiceActorAliases(cast: string[], existingAliases: st
     return [];
   }
 
-  const payload = await requestDeepSeekJson<Record<string, unknown>>(
+  const payload = await requestAiJson<Record<string, unknown>>(
     [
       {
         role: 'system',
@@ -502,7 +502,7 @@ export async function parseQuickRecordBatch(inputText: string): Promise<ParsedQu
     return { records: [] };
   }
 
-  const payload = await requestDeepSeekJson<Record<string, unknown>>(
+  const payload = await requestAiJson<Record<string, unknown>>(
     [
       {
         role: 'system',

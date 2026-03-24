@@ -44,7 +44,7 @@ export default function SetupPage() {
     'NEXTAUTH_SECRET=replace_with_a_random_string',
     'GUEST_USERNAME=guest',
     'GUEST_PASSWORD=guest',
-    '# DEEPSEEK_API_KEY=optional',
+    '# AI_API_KEY=optional',
   ].join('\n');
 
   const loadStatus = async () => {
@@ -145,7 +145,7 @@ export default function SetupPage() {
           <div>
             <h2 className="text-lg font-semibold text-zinc-100">初始化步骤</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              先复制 .env.example 为 .env.local 并填好 MySQL 账号密码。AI 的 DEEPSEEK_API_KEY 可以先不填，不影响本地把页面跑起来。
+              先复制 .env.example 为 .env.local 并填好 MySQL 账号密码。AI 的 AI_API_KEY 可以先不填，不影响本地把页面跑起来。
             </p>
           </div>
 

@@ -7,7 +7,7 @@ import { useAnimeData } from '@/hooks/useAnimeData';
 import { AnimeRecord, statusLabels } from '@/lib/dashboard-types';
 import { formatShortDate } from '@/lib/formatters';
 
-type SeasonName = '冬' | '春' | '夏' | '秋';
+type SeasonName = '1月' | '4月' | '7月' | '10月';
 
 interface SeasonBucket {
   key: string;
@@ -37,10 +37,10 @@ function parsePremiere(value?: string) {
 }
 
 function seasonFromMonth(month: number): { season: SeasonName; seasonOrder: number } {
-  if (month <= 2) return { season: '冬', seasonOrder: 0 };
-  if (month <= 5) return { season: '春', seasonOrder: 1 };
-  if (month <= 8) return { season: '夏', seasonOrder: 2 };
-  return { season: '秋', seasonOrder: 3 };
+  if (month <= 2) return { season: '1月', seasonOrder: 0 };
+  if (month <= 5) return { season: '4月', seasonOrder: 1 };
+  if (month <= 8) return { season: '7月', seasonOrder: 2 };
+  return { season: '10月', seasonOrder: 3 };
 }
 
 function hasStartedWatching(anime: AnimeRecord) {
@@ -262,7 +262,7 @@ export default function AnimeSeasonsPage() {
               <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                   <div className="text-[11px] uppercase tracking-[0.32em] text-zinc-500">Season Block</div>
-                  <h2 className="mt-2 text-[2rem] font-display leading-none text-zinc-100 lg:text-[2.35rem]">{bucket.year} · {bucket.season}季</h2>
+                  <h2 className="mt-2 text-[2rem] font-display leading-none text-zinc-100 lg:text-[2.35rem]">{bucket.year}年 {bucket.season}番</h2>
                 </div>
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-zinc-300">入库 {bucket.count} 部</span>

@@ -5,15 +5,15 @@
  * users 表的密码哈希会一起导出，备份文件不应提交到 Git 仓库。
  *
  * 用法：
- *   node scripts/maintenance/export_full_backup.js                 # 默认输出到 backups/
- *   node scripts/maintenance/export_full_backup.js --no-users      # 不包含 users 表
- *   node scripts/maintenance/export_full_backup.js -o path/to.sql  # 指定输出路径
+ *   node scripts/db/export_full_backup.js                 # 默认输出到 backups/
+ *   node scripts/db/export_full_backup.js --no-users      # 不包含 users 表
+ *   node scripts/db/export_full_backup.js -o path/to.sql  # 指定输出路径
  */
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2');
 const mysqlPromise = require('mysql2/promise');
-const { createDbConfig, projectRoot } = require('./db_env');
+const { createDbConfig, projectRoot } = require('../shared/db_env');
 const backupsDir = path.join(projectRoot, 'backups');
 
 // ---------------------------------------------------------------------------

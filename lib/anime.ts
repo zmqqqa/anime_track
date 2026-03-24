@@ -95,7 +95,7 @@ function mapRowToAnimeRecord(row: AnimeRow): AnimeRecord {
     startDate: row.start_date instanceof Date ? row.start_date.toISOString().split('T')[0] : (row.start_date || undefined),
     endDate: row.end_date instanceof Date ? row.end_date.toISOString().split('T')[0] : (row.end_date || undefined),
     premiereDate: row.premiere_date instanceof Date ? row.premiere_date.toISOString().split('T')[0] : (row.premiere_date || undefined),
-    isFinished: Boolean(row.isFinished),
+    isFinished: row.isFinished != null ? Boolean(row.isFinished) : undefined,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
     lastWatchedAt: row.lastWatchedAt
@@ -303,16 +303,35 @@ export async function createAnimeRecord(input: CreateAnimeDTO): Promise<AnimeRec
     input.premiereDate || null,
     JSON.stringify(input.cast || []),
     JSON.stringify(input.castAliases || []),
-    input.isFinished ? 1 : 0
+    input.isFinished != null ? (input.isFinished ? 1 : 0) : null
   ];
 
   const result = await query<ResultSetHeader>(sql, params);
   
-  // Return the complete record
-  const newRecord = await getAnimeRecord(result.insertId);
-  if (!newRecord) throw new Error('Failed to create anime record');
-  
-  return newRecord;
+  // 直接构造返回值，避免多余的 SELECT 查询
+  const now = new Date().toISOString();
+  return {
+    id: result.insertId,
+    title: input.title,
+    originalTitle: input.originalTitle,
+    coverUrl: input.coverUrl,
+    status: input.status,
+    score: input.score,
+    progress: input.progress,
+    totalEpisodes: input.totalEpisodes,
+    durationMinutes: input.durationMinutes,
+    notes: input.notes,
+    tags: input.tags || [],
+    cast: input.cast || [],
+    castAliases: input.castAliases || [],
+    summary: input.summary,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    premiereDate: input.premiereDate,
+    isFinished: input.isFinished != null ? Boolean(input.isFinished) : undefined,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 export async function updateAnimeRecord(
@@ -361,31 +380,24 @@ export async function findAnimeByTitle(title: string): Promise<AnimeRecord | nul
     return null;
   }
 
-  let rows = await query<AnimeRow[]>('SELECT * FROM anime WHERE title = ? ORDER BY updatedAt DESC, createdAt DESC', [normalizedTitle]);
-  if (rows.length > 0) {
-    return mapRowToAnimeRecord(rows[0]);
-  }
-
-  rows = await query<AnimeRow[]>('SELECT * FROM anime WHERE original_title = ? ORDER BY updatedAt DESC, createdAt DESC', [normalizedTitle]);
-  if (rows.length > 0) {
-    return mapRowToAnimeRecord(rows[0]);
-  }
-
+  // 单次查询：精确匹配 + 模糊匹配合并，避免多次 round-trip
   const escapedTitle = escapeLikePattern(normalizedTitle);
-  const rowsByFuzzy = await query<AnimeRow[]>(
+  const rows = await query<AnimeRow[]>(
     `
       SELECT *
       FROM anime
-      WHERE title LIKE ? ESCAPE '\\'
+      WHERE title = ?
+         OR original_title = ?
+         OR title LIKE ? ESCAPE '\\'
          OR title LIKE ? ESCAPE '\\'
          OR original_title LIKE ? ESCAPE '\\'
          OR original_title LIKE ? ESCAPE '\\'
       LIMIT 50
     `,
-    [`${escapedTitle}%`, `%${escapedTitle}%`, `${escapedTitle}%`, `%${escapedTitle}%`]
+    [normalizedTitle, normalizedTitle, `${escapedTitle}%`, `%${escapedTitle}%`, `${escapedTitle}%`, `%${escapedTitle}%`]
   );
 
-  const bestCandidate = pickBestAnimeTitleCandidate(rowsByFuzzy, normalizedTitle);
+  const bestCandidate = pickBestAnimeTitleCandidate(rows, normalizedTitle);
   if (!bestCandidate) {
     return null;
   }

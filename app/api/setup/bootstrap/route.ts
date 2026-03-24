@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
-import { createDbConfig, loadDatabaseEnv, projectRoot } from '@/scripts/maintenance/db_env';
+import { createDbConfig, loadDatabaseEnv, projectRoot } from '@/scripts/shared/db_env';
 
 type SetupStatus = {
   allowed: boolean;

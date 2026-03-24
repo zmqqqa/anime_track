@@ -1,14 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
-const { createDbConfig, loadDatabaseEnv, projectRoot } = require('./db_env');
+const { createDbConfig, loadDatabaseEnv, projectRoot } = require('../shared/db_env');
 
 async function main() {
   loadDatabaseEnv();
 
   const inputFiles = process.argv.slice(2);
   if (inputFiles.length === 0) {
-    throw new Error('Usage: node scripts/maintenance/apply_sql_files.js <file.sql> [more.sql]');
+    throw new Error('Usage: node scripts/db/apply_sql_files.js <file.sql> [more.sql]');
   }
 
   const connection = await mysql.createConnection(createDbConfig({ multipleStatements: true }));

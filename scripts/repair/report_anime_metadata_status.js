@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
-const { createDbConfig, loadDatabaseEnv } = require('./db_env');
+const { createDbConfig, loadDatabaseEnv } = require('../shared/db_env');
 
 async function main() {
   loadDatabaseEnv();

@@ -242,7 +242,7 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 xl:grid-cols-4 divide-x divide-white/[0.06]">
+            <div className="grid grid-cols-2 xl:grid-cols-4 divide-x divide-white/[0.06] rounded-2xl border border-white/[0.06] bg-white/[0.02] px-1 py-3">
                 <div className="flex flex-col gap-1 px-5 first:pl-0">
                     <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">总看番集数</span>
                     <div className="flex items-baseline gap-1.5">
@@ -290,21 +290,21 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 xl:flex xl:flex-col gap-2 xl:h-64">
-                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06]">
+                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06] rounded-xl bg-white/[0.02]">
                         <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">Peak Point</div>
                         <div className="flex items-end justify-between gap-2">
                             <span className="text-xl font-display text-zinc-100 leading-tight">{statsData.peakPoint.label}</span>
                             <span className="text-[10px] text-zinc-500 font-mono pb-0.5">max {statsData.peakPoint.value} EP</span>
                         </div>
                     </div>
-                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06]">
+                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06] rounded-xl bg-white/[0.02]">
                         <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">Active Days</div>
                         <div className="flex items-end justify-between gap-2">
                             <span className="text-xl font-mono text-emerald-300">{statsData.activeDays}</span>
                             <span className="text-[10px] text-zinc-500 pb-0.5">有记录天</span>
                         </div>
                     </div>
-                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06]">
+                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06] rounded-xl bg-white/[0.02]">
                         <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">Library Cov.</div>
                         <div className="flex items-end justify-between gap-2">
                             <span className="text-xl font-mono text-cyan-300">{statsData.libraryCoverage}%</span>

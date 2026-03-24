@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeftIcon, PencilSquareIcon, TrashIcon, CalendarIcon, CheckCircleIcon, ClockIcon, PlayCircleIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
+import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import type { AnimeStatus, AnimeDetailItem } from '@/lib/anime-shared';
 
 const statusMap: Record<AnimeStatus, string> = {
@@ -48,6 +50,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<AnimeDetailItem>>({});
   const [isAiEnriching, setIsAiEnriching] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     fetch(`/api/anime/${params.id}`)
@@ -102,7 +105,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
       });
 
       if (!res.ok) {
-        alert('保存失败');
+        toast.error('保存失败');
         return;
       }
 
@@ -111,8 +114,9 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
       setItem(updated);
       setFormData(updated);
       setIsEditing(false);
+      toast.success('保存成功');
     } catch {
-      alert('保存出错');
+      toast.error('保存出错');
     } finally {
       setSaving(false);
     }
@@ -125,7 +129,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
       const response = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(response.error || 'AI补充失败');
+        toast.error(response.error || 'AI补充失败');
         return;
       }
 
@@ -135,23 +139,31 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
 
       const appliedCount = Array.isArray(response.appliedFields) ? response.appliedFields.length : 0;
       if (appliedCount === 0) {
-        alert('没有可补充的空缺字段');
+        toast('没有可补充的空缺字段', { icon: 'ℹ️' });
+      } else {
+        toast.success(`已补充 ${appliedCount} 个字段`);
       }
     } catch (error) {
       console.error(error);
-      alert('AI补充失败');
+      toast.error('AI补充失败');
     } finally {
       setIsAiEnriching(false);
     }
   };
 
   const deleteAnime = async () => {
-    if (!confirm('确定删除这部动漫记录吗？不可恢复。')) {
-      return;
-    }
+    setShowDeleteConfirm(true);
+  };
 
-    await fetch(`/api/anime/${params.id}`, { method: 'DELETE' });
-    router.push('/anime');
+  const confirmDelete = async () => {
+    setShowDeleteConfirm(false);
+    try {
+      await fetch(`/api/anime/${params.id}`, { method: 'DELETE' });
+      toast.success('已删除');
+      router.push('/anime');
+    } catch {
+      toast.error('删除失败');
+    }
   };
 
   const coverUrl = useMemo(() => {
@@ -642,6 +654,17 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="删除番剧"
+        message={`确定要删除「${item.title}」吗？删除后其观看历史也会一并清除，无法恢复。`}
+        confirmText="确认删除"
+        cancelText="再想想"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </div>
   );
 }

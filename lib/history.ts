@@ -29,20 +29,20 @@ function mapRowToHistory(row: WatchHistoryRow): WatchHistoryRecord {
 }
 
 export async function getWatchHistory(limit = 1000): Promise<WatchHistoryRecord[]> {
-  const rows = await query<WatchHistoryRow[]>('SELECT * FROM watch_history ORDER BY watchedAt DESC LIMIT ?', [String(limit)]);
+  const rows = await query<WatchHistoryRow[]>('SELECT id, animeId, animeTitle, episode, watchedAt FROM watch_history ORDER BY watchedAt DESC LIMIT ?', [String(limit)]);
   return rows.map(mapRowToHistory);
 }
 
 export async function getWatchHistorySince(since: Date, limit = 1000): Promise<WatchHistoryRecord[]> {
   const rows = await query<WatchHistoryRow[]>(
-    'SELECT * FROM watch_history WHERE watchedAt >= ? ORDER BY watchedAt DESC LIMIT ?',
+    'SELECT id, animeId, animeTitle, episode, watchedAt FROM watch_history WHERE watchedAt >= ? ORDER BY watchedAt DESC LIMIT ?',
     [since, String(limit)]
   );
   return rows.map(mapRowToHistory);
 }
 
 export async function addWatchHistory(animeId: number, animeTitle: string, episode: number, date?: Date): Promise<WatchHistoryRecord> {
-  const watchedAt = (date || new Date()); // Date object is fine for mysql2
+  const watchedAt = (date || new Date());
   const sql = `
     INSERT INTO watch_history (animeId, animeTitle, episode, watchedAt)
     VALUES (?, ?, ?, ?)
@@ -50,8 +50,13 @@ export async function addWatchHistory(animeId: number, animeTitle: string, episo
   
   const result = await query<ResultSetHeader>(sql, [animeId, animeTitle, episode, watchedAt]);
   
-  const newRecord = await query<WatchHistoryRow[]>('SELECT * FROM watch_history WHERE id = ?', [result.insertId]);
-  return mapRowToHistory(newRecord[0]);
+  return {
+    id: result.insertId,
+    animeId,
+    animeTitle,
+    episode,
+    watchedAt: watchedAt instanceof Date ? watchedAt.toISOString() : String(watchedAt),
+  };
 }
 
 export async function addBatchWatchHistory(animeId: number, animeTitle: string, startEpisode: number, endEpisode: number, date?: Date): Promise<void> {

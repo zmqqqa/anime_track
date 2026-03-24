@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { MagnifyingGlassIcon, TvIcon, TagIcon, SparklesIcon, FireIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, TvIcon, TagIcon, SparklesIcon, FireIcon, Squares2X2Icon, ListBulletIcon } from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
 import AnimeHeader from '@/components/anime/AnimeHeader';
 import AnimeFilterBar from '@/components/anime/AnimeFilterBar';
 import AnimeForm from '@/components/anime/AnimeForm';
-import AnimeGrid from '@/components/anime/AnimeGrid';
+import AnimeGrid, { type ViewMode } from '@/components/anime/AnimeGrid';
+import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { containsCjkText, matchesTextQuery, uniqueStrings } from '@/lib/anime-cast';
 import type { AnimeStatus, AnimeSortBy, SessionUser, AnimeListItem, AnimeCardItem } from '@/lib/anime-shared';
 
@@ -53,6 +55,13 @@ export default function AnimePageClient() {
   const [quickInput, setQuickInput] = useState('');
   const [quickLoading, setQuickLoading] = useState(false);
   const [quickMessage, setQuickMessage] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window !== 'undefined') {
+      return (sessionStorage.getItem('anime_view_mode') as ViewMode) || 'grid';
+    }
+    return 'grid';
+  });
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; title: string } | null>(null);
   
   // 筛选与排序状态
   const [filterStatus, setFilterStatus] = useState<AnimeStatus | 'all'>('all');
@@ -213,6 +222,11 @@ export default function AnimePageClient() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const toggleViewMode = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    sessionStorage.setItem('anime_view_mode', mode);
+  }, []);
+
   const updateProgress = async (id: number, current: number, total?: number | null) => {
     if (current < 0) return;
     try {
@@ -226,22 +240,41 @@ export default function AnimePageClient() {
           recordHistory: true
         })
       });
-      if (res.ok) loadItems();
+      if (res.ok) {
+        loadItems();
+        if (isFinishing) {
+          toast.success('🎉 恭喜完结！');
+        } else {
+          toast.success(`已更新进度至 EP ${current}`);
+        }
+      }
     } catch (err) {
       console.error('Update failed:', err);
+      toast.error('更新失败，请重试');
     }
   };
 
   const deleteAnime = async (id: number) => {
-    if (!confirm('确定要删除这部番剧吗？')) return;
+    const item = items.find(i => i.id === id);
+    setDeleteConfirm({ id, title: item?.title || '这部番剧' });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    const { id } = deleteConfirm;
+    setDeleteConfirm(null);
     try {
       const res = await fetch(`/api/anime/${id}`, { method: 'DELETE' });
       if (res.ok) {
         loadItems();
         resetForm();
+        toast.success('已删除');
+      } else {
+        toast.error('删除失败');
       }
     } catch (err) {
       console.error('Delete failed:', err);
+      toast.error('删除失败，请重试');
     }
   };
 
@@ -266,11 +299,13 @@ export default function AnimePageClient() {
 
       if (!res.ok) {
         setQuickMessage(data.error || 'AI录入失败');
+        toast.error(data.error || 'AI录入失败');
         return;
       }
 
       await loadItems();
       setQuickInput('');
+      toast.success('AI 录入成功');
 
       const results = Array.isArray(data?.results)
         ? (data.results as Array<{
@@ -306,6 +341,7 @@ export default function AnimePageClient() {
     } catch (error) {
       console.error('Quick record failed:', error);
       setQuickMessage('AI录入失败，请稍后重试');
+      toast.error('AI录入失败，请稍后重试');
     } finally {
       setQuickLoading(false);
     }
@@ -472,18 +508,38 @@ export default function AnimePageClient() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         <div className="lg:col-span-8 space-y-6">
           <div className="space-y-4">
-            {/* 搜索框 */}
-            <div className="relative group shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <MagnifyingGlassIcon className="h-5 w-5 text-zinc-500 group-focus-within:text-purple-500 transition-colors" />
+            {/* 搜索框 + 视图切换 */}
+            <div className="flex gap-3">
+              <div className="relative group shadow-sm flex-1">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <MagnifyingGlassIcon className="h-5 w-5 text-zinc-500 group-focus-within:text-purple-500 transition-colors" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="搜索番剧、原名或声优..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full pl-11 pr-4 py-3 bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all shadow-xl"
+                />
               </div>
-              <input
-                type="text"
-                placeholder="搜索番剧、原名或声优..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full pl-11 pr-4 py-3 bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all shadow-xl"
-              />
+              <div className="flex items-center rounded-2xl border border-white/5 bg-zinc-900/50 overflow-hidden flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => toggleViewMode('grid')}
+                  className={`p-3 transition-all ${viewMode === 'grid' ? 'bg-emerald-500/15 text-emerald-300' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}
+                  aria-label="网格视图"
+                >
+                  <Squares2X2Icon className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleViewMode('list')}
+                  className={`p-3 transition-all ${viewMode === 'list' ? 'bg-emerald-500/15 text-emerald-300' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}
+                  aria-label="列表视图"
+                >
+                  <ListBulletIcon className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <AnimeFilterBar 
@@ -530,6 +586,7 @@ export default function AnimePageClient() {
             updateProgress={updateProgress}
             loading={loading}
             isAdmin={isAdmin}
+            viewMode={viewMode}
           />
 
           {!loading && filteredItems.length > 0 && (
@@ -689,6 +746,16 @@ export default function AnimePageClient() {
         </div>
       </div>
 
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        title="删除番剧"
+        message={`确定要删除「${deleteConfirm?.title || ''}」吗？删除后其观看历史也会一并清除，无法恢复。`}
+        confirmText="确认删除"
+        cancelText="再想想"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </main>
   );
 }

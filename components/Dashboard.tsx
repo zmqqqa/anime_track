@@ -55,7 +55,6 @@ export default function Dashboard() {
             label: '追番总数',
             value: animeStats.count.toString(),
             unit: '部',
-            change: 'Total Library',
             icon: TvIcon,
             color: 'text-emerald-300',
         },
@@ -63,7 +62,6 @@ export default function Dashboard() {
             label: '当前追番',
             value: (animeStats.byStatus.watching || 0).toString(),
             unit: '部',
-            change: 'Watching',
             icon: FireIcon,
             color: 'text-amber-300',
         },
@@ -71,7 +69,6 @@ export default function Dashboard() {
             label: '本周观看',
             value: weeklyEpisodes.toString(),
             unit: '集',
-            change: 'Weekly Activity',
             icon: ClockIcon,
             color: 'text-sky-300',
         },
@@ -79,7 +76,6 @@ export default function Dashboard() {
             label: '看番总时长',
             value: Math.round(animeStats.minutesWatched / 60).toString(),
             unit: '小时',
-            change: 'Total Time',
             icon: ArrowTrendingUpIcon,
             color: 'text-cyan-300',
         },
@@ -100,9 +96,16 @@ export default function Dashboard() {
     }, [animeList]);
 
     const heroAnime = useMemo(() => {
-        if (topRated.length > 0) return topRated[0];
+        if (parsedHistory.length) {
+            const animeMap = new Map(animeList.map((anime) => [anime.id, anime]));
+            const sorted = [...parsedHistory].sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
+            for (const record of sorted) {
+                const anime = animeMap.get(record.animeId);
+                if (anime) return anime;
+            }
+        }
         return animeList[0] ?? null;
-    }, [animeList, topRated]);
+    }, [animeList, parsedHistory]);
 
     const recentWatching = useMemo(() => {
         const animeMap = new Map(animeList.map((anime) => [anime.id, anime]));
@@ -207,13 +210,10 @@ export default function Dashboard() {
 
                     <div className="relative z-10 grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
                         <div className="xl:col-span-8 space-y-5">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/12 px-3 py-1 text-[10px] uppercase tracking-[0.32em] text-emerald-100/90">
-                                Archive Main Hall
-                            </div>
                             <h2 className="text-2xl md:text-4xl font-display font-semibold tracking-tight text-zinc-50 leading-tight">
-                                私藏番剧馆
+                                我的番剧
                                 <span className="block text-zinc-300 text-base md:text-xl mt-3 font-normal">
-                                    把观影节律、片库画像和元数据风格收纳进同一个场景。
+                                    记录、评分和元数据，全都在这里。
                                 </span>
                             </h2>
 
@@ -231,8 +231,8 @@ export default function Dashboard() {
                                     <div className="mt-1 text-2xl font-mono text-cyan-300">{animeCompletionRate}%</div>
                                 </div>
                                 <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-3">
-                                    <div className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">本周节律</div>
-                                    <div className="mt-1 text-2xl font-mono text-amber-300">{weeklyEpisodes} EP</div>
+                                    <div className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">本周观看</div>
+                                    <div className="mt-1 text-2xl font-mono text-amber-300">{weeklyEpisodes} 集</div>
                                 </div>
                             </div>
 
@@ -250,7 +250,7 @@ export default function Dashboard() {
                         </div>
 
                         <div className="xl:col-span-4 rounded-[30px] border border-white/12 bg-black/35 p-5 lg:p-6 backdrop-blur-md">
-                            <div className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Focus Work</div>
+                            <div className="text-[10px] text-zinc-500">最近在看</div>
                             {heroAnime ? (
                                 <div className="mt-4 space-y-4">
                                     <div>
@@ -298,7 +298,7 @@ export default function Dashboard() {
                     {stats.map((stat, i) => (
                         <div
                             key={i}
-                            className="glass-panel p-6 rounded-[28px] transition-all duration-500 hover:-translate-y-1 group relative overflow-hidden flex flex-col justify-between h-32 border-white/10"
+                            className="glass-panel px-5 py-5 rounded-[28px] transition-all duration-500 hover:-translate-y-1 group relative overflow-hidden flex flex-col gap-4 border-white/10"
                             style={{ background: 'rgba(14, 21, 19, 0.88)' }}
                         >
                             {/* 背景装饰图标 */}
@@ -306,13 +306,10 @@ export default function Dashboard() {
                                 <stat.icon className={`w-20 h-20 ${stat.color}`} />
                             </div>
 
-                            <div className="flex items-start justify-between relative z-10">
+                            <div className="flex items-start relative z-10">
                                 <div className={`flex items-center justify-center w-8 h-8 rounded-xl ${stat.color} bg-current/15 border border-current/20`}>
                                     <stat.icon className="w-4 h-4" />
                                 </div>
-                                <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-md border ${stat.color} bg-current/8 border-current/25 tracking-widest opacity-75`}>
-                                    {stat.change}
-                                </span>
                             </div>
 
                             <div className="relative z-10">
@@ -378,11 +375,10 @@ export default function Dashboard() {
                                     className="group rounded-[22px] border border-transparent bg-white/[0.03] overflow-hidden hover:border-sky-300/20 transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01]"
                                 >
                                     <div
-                                        className="h-44 bg-zinc-900/70 bg-cover bg-center"
+                                        className="aspect-video w-full bg-zinc-900/70 bg-cover bg-center"
                                         style={anime?.coverUrl ? { backgroundImage: `linear-gradient(180deg, rgba(7,17,15,0.1), rgba(7,17,15,0.9)), url(${anime.coverUrl})` } : undefined}
                                     />
                                     <div className="p-4">
-                                        <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Recent Watch</div>
                                         <div className="mt-1 text-base text-zinc-100 truncate">{anime?.title ?? record.animeTitle}</div>
                                         <div className="text-xs text-zinc-500 truncate">{anime?.originalTitle ?? '来自观看历史'}</div>
                                         <div className="mt-3 flex items-center justify-between gap-2">
@@ -397,13 +393,11 @@ export default function Dashboard() {
                             {Array.from({ length: Math.max(0, 9 - recentWatching.length) }).map((_, index) => (
                                 <div
                                     key={`recent-empty-${index}`}
-                                    className="rounded-[22px] border border-transparent bg-white/[0.02] overflow-hidden min-h-[260px]"
+                                    className="rounded-[22px] border border-transparent bg-white/[0.02] overflow-hidden"
                                 >
-                                    <div className="h-44 bg-gradient-to-br from-white/[0.04] to-transparent" />
+                                    <div className="aspect-video bg-gradient-to-br from-white/[0.04] to-transparent" />
                                     <div className="p-4">
-                                        <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-600">Waiting Slot</div>
-                                        <div className="mt-2 text-sm text-zinc-400">最近看得太少啦~</div>
-                                        <div className="text-xs text-zinc-600 mt-1">再看几集，这里会自动补满九宫格</div>
+                                        <div className="mt-2 text-sm text-zinc-500">最近看得太少啦~</div>
                                     </div>
                                 </div>
                             ))}
@@ -436,7 +430,7 @@ export default function Dashboard() {
                                 ))}
                             </div>
                             <div className="rounded-[18px] border border-emerald-300/15 bg-emerald-300/10 p-3">
-                                <div className="text-[10px] uppercase tracking-[0.28em] text-emerald-100/80">Metadata Index</div>
+                                <div className="text-[10px] text-emerald-100/80">完整度指数</div>
                                 <div className="mt-1.5 text-xl font-mono text-emerald-100">{metadataRichness}%</div>
                                 <p className="mt-1 text-xs text-zinc-300 leading-5">具备 4 项以上核心字段的作品占比。值越高，图谱页和首页越完整。</p>
                             </div>
@@ -494,15 +488,15 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    <div className="glass-panel p-6 lg:p-7 rounded-[32px] flex flex-col min-h-0 overflow-hidden h-[380px] lg:h-[480px] xl:h-[540px]">
+                    <div className="glass-panel p-6 lg:p-7 rounded-[32px] flex flex-col overflow-hidden">
                         <div className="flex items-center justify-between mb-5 flex-shrink-0">
                             <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)]" />
                                 最近记录
                             </h2>
-                            <Link href="/anime/timeline" className="text-[10px] font-bold text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">More →</Link>
+                            <Link href="/anime/timeline" className="text-[10px] font-bold text-zinc-600 hover:text-white transition-colors">查看全部</Link>
                         </div>
-                        <div className="flex-1 min-h-0 overflow-y-auto pr-2 overscroll-contain">
+                        <div className="max-h-[480px] overflow-y-auto pr-2 overscroll-contain">
                             <ActivityFeed history={parsedHistory} />
                         </div>
                     </div>

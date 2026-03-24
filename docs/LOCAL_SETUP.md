@@ -47,7 +47,7 @@ GUEST_PASSWORD=guest
 
 说明：
 
-1. `DEEPSEEK_API_KEY` 可以先不填
+1. `AI_API_KEY` 可以先不填（也兼容旧的 `DEEPSEEK_API_KEY`）
 2. 不填 AI key 也能打开页面、登录、导入示例数据
 3. 只是 AI 补全功能暂时不会工作
 

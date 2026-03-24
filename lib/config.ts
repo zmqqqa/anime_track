@@ -42,7 +42,7 @@ export const navigationItems: NavigationItem[] = [
 ];
 
 export const config = {
-  appName: 'ANIME TRACK',
+  appName: '动漫记录',
   version: 'v1.0.0',
   startDate: 'Since 2026',
 };
