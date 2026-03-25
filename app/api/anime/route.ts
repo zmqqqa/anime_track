@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const json = await request.json();
     const parsed = createAnimeSchema.safeParse(json);
     if (!parsed.success) {
-      const firstError = parsed.error.errors[0];
+      const firstError = parsed.error.issues[0];
       return apiError(firstError?.message || '参数校验失败', 400);
     }
 
