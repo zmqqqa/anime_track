@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from 'react';
-import type { EChartsOption, CallbackDataParams } from 'echarts';
+import type { EChartsOption } from 'echarts';
+import type { CallbackDataParams } from 'echarts/types/src/util/types.js';
 import ReactECharts from 'echarts-for-react';
 
 interface ChartItem {
