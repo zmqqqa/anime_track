@@ -35,10 +35,18 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
     }))
     .filter((group) => group.items.length > 0);
 
+  const animeSubsectionHrefs = navigationItems
+    .map((item) => item.href)
+    .filter((href) => href.startsWith('/anime/') && href !== '/anime');
+
   const isItemActive = (href: string) => {
     if (href === '/') return pathname === '/';
     if (href === '/anime') {
-      return pathname === '/anime' || /^\/anime\/[^/]+$/.test(pathname);
+      const isKnownSubsection = animeSubsectionHrefs.some((subsectionHref) => (
+        pathname === subsectionHref || pathname.startsWith(`${subsectionHref}/`)
+      ));
+
+      return pathname === '/anime' || (pathname.startsWith('/anime/') && !isKnownSubsection);
     }
     return pathname === href || pathname.startsWith(`${href}/`);
   };

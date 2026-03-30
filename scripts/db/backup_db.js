@@ -1,17 +1,9 @@
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { nowCSTTimestamp, loadDatabaseEnv } = require('../shared/db_env');
 
-// Load environment variables manually since this is a standalone script
-// In a real project, you might use dotenv
-const envPath = path.join(__dirname, '../../.env.local');
-if (fs.existsSync(envPath)) {
-    const envFile = fs.readFileSync(envPath, 'utf8');
-    envFile.split('\n').forEach(line => {
-        const [key, value] = line.split('=');
-        if (key && value) process.env[key.trim()] = value.trim();
-    });
-}
+loadDatabaseEnv();
 
 const host = process.env.MYSQL_HOST || '127.0.0.1';
 const user = process.env.MYSQL_USER;
@@ -23,7 +15,7 @@ if (!fs.existsSync(backupDir)) {
     fs.mkdirSync(backupDir);
 }
 
-const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+const timestamp = nowCSTTimestamp();
 const fileName = `backup-${database}-${timestamp}.sql`;
 const filePath = path.join(backupDir, fileName);
 

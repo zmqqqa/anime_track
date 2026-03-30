@@ -4,6 +4,11 @@ import { type ResultSetHeader, type RowDataPacket } from 'mysql2';
 import { parseJsonStringArray } from './anime-cast';
 import { extractSeasonNumber, hasSeasonMarker, normalizeTitleToken } from './chinese-parser';
 
+/** 将 Date 对象按 CST (UTC+8) 截取为 YYYY-MM-DD 字符串，避免 UTC 截断导致差一天 */
+function toDateStringCST(d: Date): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(d);
+}
+
 // Anime Status: watching, completed, dropped, plan_to_watch
 export type AnimeStatus = 'watching' | 'completed' | 'dropped' | 'plan_to_watch';
 
@@ -92,9 +97,9 @@ function mapRowToAnimeRecord(row: AnimeRow): AnimeRecord {
     notes: row.notes || undefined,
     tags: parseJsonStringArray(row.tags),
     summary: row.summary || undefined,
-    startDate: row.start_date instanceof Date ? row.start_date.toISOString().split('T')[0] : (row.start_date || undefined),
-    endDate: row.end_date instanceof Date ? row.end_date.toISOString().split('T')[0] : (row.end_date || undefined),
-    premiereDate: row.premiere_date instanceof Date ? row.premiere_date.toISOString().split('T')[0] : (row.premiere_date || undefined),
+    startDate: row.start_date instanceof Date ? toDateStringCST(row.start_date) : (row.start_date || undefined),
+    endDate: row.end_date instanceof Date ? toDateStringCST(row.end_date) : (row.end_date || undefined),
+    premiereDate: row.premiere_date instanceof Date ? toDateStringCST(row.premiere_date) : (row.premiere_date || undefined),
     isFinished: row.isFinished != null ? Boolean(row.isFinished) : undefined,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
@@ -256,10 +261,10 @@ export async function listAnimeRecords(options: ListAnimeOptions = {}): Promise<
 
   if (limit && limit > 0) {
     sql += ' LIMIT ?';
-    params.push(String(limit));
+    params.push(Math.floor(Number(limit)));
     if (offset && offset > 0) {
       sql += ' OFFSET ?';
-      params.push(String(offset));
+      params.push(Math.floor(Number(offset)));
     }
   }
 
@@ -289,10 +294,10 @@ export async function listAnimeRecordsWithLastWatched(options: ListAnimeOptions 
 
   if (limit && limit > 0) {
     sql += ' LIMIT ?';
-    params.push(String(limit));
+    params.push(Math.floor(Number(limit)));
     if (offset && offset > 0) {
       sql += ' OFFSET ?';
-      params.push(String(offset));
+      params.push(Math.floor(Number(offset)));
     }
   }
 

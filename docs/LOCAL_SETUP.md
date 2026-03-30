@@ -13,8 +13,8 @@
 ## 第一步：克隆项目
 
 ```bash
-git clone <你的仓库地址>
-cd anime_track
+git clone https://github.com/zmqqqa/AnimeTrack.git
+cd AnimeTrack
 ```
 
 ## 第二步：安装依赖
@@ -155,8 +155,8 @@ http://localhost:3000/register
 如果你只想最快看到页面：
 
 ```bash
-git clone <repo>
-cd anime_track
+git clone https://github.com/zmqqqa/AnimeTrack.git
+cd AnimeTrack
 npm install
 cp .env.example .env.local
 npm run dev

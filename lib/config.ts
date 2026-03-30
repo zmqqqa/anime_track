@@ -43,7 +43,14 @@ export const navigationItems: NavigationItem[] = [
   {
     label: '数据管理',
     href: '/admin',
-    description: '历史记录管理与维护',
+    description: '番剧与历史记录管理',
+    section: '管理区',
+    adminOnly: true,
+  },
+  {
+    label: '备份与导出',
+    href: '/backup',
+    description: '数据备份与导出管理',
     section: '管理区',
     adminOnly: true,
   },

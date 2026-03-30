@@ -1,53 +1,115 @@
 /**
- * enrich_titles.js — 第 1 步：AI 标准化番剧名称
+ * enrich_titles.js — 用 AI 批量标准化动画标题
  *
- * 用用户输入的名字询问 AI，获取：
- *   - officialTitle: 标准简体中文名
- *   - originalTitle: 原始标题（日文/英文，可能带特殊符号）
- *
- * 支持并发，默认 5 路。
+ * 单次 AI 调用，直接返回标准中文名和原始标题。
  *
  * Usage:
  *   node scripts/enrich/enrich_titles.js [options]
  *
  * Options:
- *   --write           实际写入数据库（默认 dry-run）
- *   --force           也处理已有 original_title 的行
- *   --no-update-title 不覆盖中文标题，仅填充 original_title
- *   --limit=N         最多处理 N 条
- *   --ids=1,2,3       只处理指定 ID
- *   --concurrency=5   AI 并发数（默认 5）
- *   --help            显示帮助
+ *   --write             实际写入数据库（默认 dry-run）
+ *   --force             处理所有记录，不仅限于 original_title 为空的记录
+ *   --no-update-title   不覆盖 title，只补 original_title
+ *   --limit=N           最多处理 N 条
+ *   --ids=1,2,3         只处理指定 ID
+ *   --concurrency=3     并发数（默认 3，最大 5）
+ *   --min-confidence=70 最低置信度（默认 70，范围 0-100）
+ *   --help              显示帮助
  */
 
 const mysql = require('mysql2/promise');
 const { createDbConfig, loadDatabaseEnv } = require('../shared/db_env');
+const { isSeasonCompatible } = require('../shared/query_hint_ai');
 
-// 确保 .env.local 在读取 AI 配置之前加载
 loadDatabaseEnv();
+
+const DEFAULT_AI_URL = 'https://api.deepseek.com/chat/completions';
+const DEFAULT_AI_MODEL = 'deepseek-chat';
+const FETCH_TIMEOUT_MS = 30000;
+const MAX_CONCURRENCY = 5;
+
+function normalizeAiApiUrl(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return DEFAULT_AI_URL;
+  }
+
+  const withoutTrailingSlash = normalized.replace(/\/+$/, '');
+  if (/ark\.cn-[^.]+\.volces\.com\/api\/v\d+$/i.test(withoutTrailingSlash)) {
+    return `${withoutTrailingSlash}/chat/completions`;
+  }
+
+  return withoutTrailingSlash;
+}
+
+function shouldUseJsonFormat(apiUrl, model) {
+  const override = String(process.env.AI_JSON_FORMAT ?? '').trim().toLowerCase();
+  if (['false', '0', 'off', 'no'].includes(override)) {
+    return false;
+  }
+
+  if (['true', '1', 'on', 'yes'].includes(override)) {
+    return true;
+  }
+
+  if (String(apiUrl || '').includes('.volces.com') || String(model || '').toLowerCase().startsWith('ep-')) {
+    return false;
+  }
+
+  return true;
+}
 
 function getAiConfig() {
   return {
-    apiUrl: String(process.env.AI_API_URL || '').trim() || 'https://api.deepseek.com/chat/completions',
-    model: String(process.env.AI_MODEL || '').trim() || 'deepseek-chat',
+    apiUrl: normalizeAiApiUrl(process.env.AI_API_URL),
+    model: String(process.env.AI_MODEL || '').trim() || DEFAULT_AI_MODEL,
     apiKey: String(process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '').trim(),
   };
 }
 
-// ── CLI ──
+function shouldDisableThinking(aiConfig) {
+  if (String(process.env.AI_DISABLE_THINKING || '').trim().toLowerCase() === 'false') {
+    return false;
+  }
+  return aiConfig.apiUrl.includes('dashscope.aliyuncs.com') || aiConfig.model.startsWith('qwen');
+}
 
 function parseArgs(argv) {
-  const opts = { dryRun: true, force: false, updateTitle: true, limit: undefined, ids: undefined, concurrency: 5 };
+  const options = {
+    dryRun: true,
+    force: false,
+    updateTitle: true,
+    limit: undefined,
+    ids: undefined,
+    concurrency: 3,
+    minConfidence: 70,
+  };
+
   for (const arg of argv) {
     if (arg === '--help') { printHelp(); process.exit(0); }
-    if (arg === '--write') { opts.dryRun = false; continue; }
-    if (arg === '--force') { opts.force = true; continue; }
-    if (arg === '--no-update-title') { opts.updateTitle = false; continue; }
-    if (arg.startsWith('--limit=')) { const n = Number(arg.slice(8)); if (n > 0) opts.limit = n; continue; }
-    if (arg.startsWith('--concurrency=')) { const n = Number(arg.slice(14)); if (n > 0) opts.concurrency = Math.min(n, 5); continue; }
-    if (arg.startsWith('--ids=')) { opts.ids = arg.slice(6).split(',').map(Number).filter(n => n > 0); continue; }
+    if (arg === '--write') { options.dryRun = false; continue; }
+    if (arg === '--force') { options.force = true; continue; }
+    if (arg === '--no-update-title') { options.updateTitle = false; continue; }
+    if (arg.startsWith('--limit=')) {
+      const v = Number(arg.slice(8));
+      if (v > 0) options.limit = v;
+      continue;
+    }
+    if (arg.startsWith('--ids=')) {
+      options.ids = arg.slice(6).split(',').map(Number).filter((id) => id > 0);
+      continue;
+    }
+    if (arg.startsWith('--concurrency=')) {
+      const v = Number(arg.slice(14));
+      if (v > 0) options.concurrency = Math.min(v, MAX_CONCURRENCY);
+      continue;
+    }
+    if (arg.startsWith('--min-confidence=')) {
+      const v = Number(arg.slice(17));
+      if (Number.isFinite(v)) options.minConfidence = Math.max(0, Math.min(100, v));
+    }
   }
-  return opts;
+  return options;
 }
 
 function printHelp() {
@@ -57,90 +119,183 @@ function printHelp() {
   --no-update-title   不覆盖中文标题
   --limit=N           最多处理 N 条
   --ids=1,2,3         只处理指定 ID
-  --concurrency=5     AI 并发数（默认 5，上限 5）`);
+  --concurrency=3     AI 并发数（默认 3，上限 5）
+  --min-confidence=70 最低置信度（默认 70）`);
 }
 
-// ── AI ──
-
-const SYSTEM_PROMPT = '你是动漫资料整理助手，只输出 JSON，不输出解释。信息不确定时宁可留空，不要编造。';
-
-function buildUserPrompt(title) {
-  return `请识别这部动画，并返回它的标准标题信息。
-
-用户输入的名字：${title}
-
-返回 JSON：
-{
-  "officialTitle": "标准简体中文标题",
-  "originalTitle": "原始标题（日文/英文，含特殊符号），不确定可留空"
+function sanitizeTitle(value) {
+  return (typeof value === 'string' ? value.trim() : '').replace(/\s+/g, ' ').slice(0, 500);
 }
 
-关键规则：
-1. officialTitle 必须是"具体动画条目"的标准简体中文标题，不能是漫画/轻小说/游戏名。
-2. 分季、续作、剧场版、OVA 返回该具体条目的标题。
-3. 有稳定通行的官方中文副标题时，优先用副标题形式（如"南家三姐妹 再来一碗"而非"南家三姐妹 第二季"）。
-4. 如果用户输入含"第一季"但标准名称不含，则去掉。例如"间谍过家家第一季"→"SPY×FAMILY"对应的标准中文名。
-5. originalTitle 必须是同一动画条目的原始标题（日文居多），注意保留特殊符号如 ×、★、♪ 等。不要返回漫画连载名或原作书名。
-6. 不同季度是不同的条目，如"间谍过家家"和"间谍过家家 第二季"。
-7. 如果完全无法识别，officialTitle 返回用户输入原文, originalTitle 返回空字符串。`;
+function hasExplicitSeasonHint(value) {
+  return /第\s*[一二三四五六七八九十0-9两]+\s*(?:季|期)|season\s*[0-9]+|[0-9]+(?:st|nd|rd|th)\s+season|\bs[0-9]+\b|剧场版|ova|oad|sp/i.test(String(value || ''));
 }
 
-async function fetchAiTitleInfo(title, aiConfig) {
-  const normalized = String(title || '').trim();
-  if (!normalized || !aiConfig.apiKey) return null;
+function extractSeasonNumber(value) {
+  const text = String(value || '');
+  const match = text.match(/第([一二三四五六七八九十0-9两]+)(?:季|期)|season\s*([0-9]+)|s([0-9]+)|([0-9]+)(?:st|nd|rd|th)\s+season/i);
+  if (!match) return null;
 
+  if (match[2]) return Number(match[2]);
+  if (match[3]) return Number(match[3]);
+  if (match[4]) return Number(match[4]);
+  if (match[1]) {
+    const token = match[1].trim();
+    if (/^[0-9]+$/.test(token)) return Number(token);
+    const map = { '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10 };
+    if (token === '十') return 10;
+    if (token.startsWith('十')) return 10 + (map[token.slice(1)] || 0);
+    if (token.endsWith('十')) return (map[token.slice(0, -1)] || 0) * 10;
+    if (token.includes('十')) {
+      const [h, t] = token.split('十');
+      return (map[h] || 0) * 10 + (map[t] || 0);
+    }
+    return map[token] || null;
+  }
+  return null;
+}
+
+function stripSeasonTokens(value) {
+  return String(value || '')
+    .replace(/第\s*[一二三四五六七八九十0-9两]+\s*(?:季|期)/gi, ' ')
+    .replace(/season\s*[0-9]+/gi, ' ')
+    .replace(/\bs[0-9]+\b/gi, ' ')
+    .replace(/[0-9]+(?:st|nd|rd|th)\s+season/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeForCompare(value) {
+  return sanitizeTitle(value)
+    .toLowerCase()
+    .replace(/[\s·・:：'"""''!！?？,，.。/／\\()（）\[\]【】{}-]+/g, '');
+}
+
+function wouldCollapseEdition(inputTitle, nextTitle) {
+  const input = sanitizeTitle(inputTitle);
+  const next = sanitizeTitle(nextTitle);
+  if (!input || !next || !hasExplicitSeasonHint(input)) return false;
+
+  const inputSeason = extractSeasonNumber(input);
+  const nextSeason = extractSeasonNumber(next);
+  const inputBase = normalizeForCompare(stripSeasonTokens(input));
+  const nextBase = normalizeForCompare(stripSeasonTokens(next));
+
+  if (!inputBase || !nextBase || inputBase !== nextBase) return false;
+  if (inputSeason && !nextSeason) return true;
+  if (inputSeason && nextSeason && inputSeason !== nextSeason) return true;
+  return false;
+}
+
+async function requestAiJson(aiConfig, messages) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const requestBody = {
+    model: aiConfig.model,
+    messages,
+    temperature: 0.1,
+    ...(shouldUseJsonFormat(aiConfig.apiUrl, aiConfig.model) ? { response_format: { type: 'json_object' } } : {}),
+    ...(shouldDisableThinking(aiConfig) ? { enable_thinking: false } : {}),
+  };
 
   try {
     const response = await fetch(aiConfig.apiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${aiConfig.apiKey}` },
-      body: JSON.stringify({
-        model: aiConfig.model,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: buildUserPrompt(normalized) },
-        ],
-        temperature: 0.1,
-        ...(process.env.AI_JSON_FORMAT !== 'false' ? { response_format: { type: 'json_object' } } : {}),
-      }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${aiConfig.apiKey}`,
+      },
+      body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
-      throw new Error(`AI ${response.status}: ${detail.slice(0, 200)}`);
+      throw new Error(`AI ${response.status}: ${detail.slice(0, 300)}`);
     }
 
     const data = await response.json();
     const content = data?.choices?.[0]?.message?.content;
     if (typeof content !== 'string') return null;
 
-    // 容错：从可能包含多余文字的响应中提取 JSON
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
-    const payload = JSON.parse(jsonMatch[0]);
-    return {
-      officialTitle: typeof payload.officialTitle === 'string' ? payload.officialTitle.trim() : normalized,
-      originalTitle: typeof payload.originalTitle === 'string' ? payload.originalTitle.trim() : '',
-    };
+    return JSON.parse(jsonMatch[0]);
   } finally {
     clearTimeout(timer);
   }
 }
 
-// ── 并发控制 ──
+function buildMessages(inputTitle) {
+  return [
+    {
+      role: 'system',
+      content: '你是动画标题标准化助手。识别用户输入对应的具体动画条目，返回标准中文名和原始标题。只输出 JSON。',
+    },
+    {
+      role: 'user',
+      content: `请识别下面这条输入对应的具体动画条目，返回标准标题。
+
+输入：${inputTitle}
+
+返回 JSON：
+{
+  "officialTitle": "标准简体中文名",
+  "originalTitle": "原始标题（日文优先，其次英文）",
+  "confidence": 0
+}
+
+规则：
+1. 必须识别到具体作品，不能把续作、剧场版、OVA 退化成母系列名。
+2. officialTitle 用通行的标准简体中文名；没把握就留空字符串。
+3. originalTitle 必须与 officialTitle 指向同一作品；没把握就留空字符串。
+4. 输入含季数、剧场版、OVA、SP 等线索时必须保留在结果中。
+5. confidence 取 0-100 整数，低把握宁可低分。`,
+    },
+  ];
+}
+
+async function resolveTitleWithAi(inputTitle, aiConfig) {
+  const result = await requestAiJson(aiConfig, buildMessages(inputTitle));
+  if (!result) return null;
+
+  const confidence = Number(result.confidence);
+  return {
+    officialTitle: sanitizeTitle(result.officialTitle),
+    originalTitle: sanitizeTitle(result.originalTitle),
+    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(100, Math.round(confidence))) : 0,
+  };
+}
+
+function shouldAcceptResult(inputTitle, result, minConfidence) {
+  if (!result) return { ok: false, reason: 'no_result' };
+  if (result.confidence < minConfidence) return { ok: false, reason: 'low_confidence' };
+  if (!result.officialTitle && !result.originalTitle) return { ok: false, reason: 'empty_result' };
+  if (!isSeasonCompatible(inputTitle, [result.officialTitle, result.originalTitle])) return { ok: false, reason: 'season_mismatch' };
+  if (wouldCollapseEdition(inputTitle, result.officialTitle)) return { ok: false, reason: 'collapsed_edition' };
+  return { ok: true, reason: 'accepted' };
+}
+
+function formatRejectReason(reason, result) {
+  const mapping = {
+    no_result: 'AI 无返回',
+    low_confidence: `置信度过低 (${result?.confidence ?? 0})`,
+    empty_result: '标题结果为空',
+    season_mismatch: '季别不一致',
+    collapsed_edition: '把明确季别/特别篇退化成母标题',
+  };
+  return mapping[reason] || reason;
+}
 
 async function runConcurrent(tasks, concurrency) {
   const results = new Array(tasks.length);
-  let index = 0;
+  let cursor = 0;
 
   async function worker() {
-    while (index < tasks.length) {
-      const i = index++;
-      results[i] = await tasks[i]();
+    while (cursor < tasks.length) {
+      const index = cursor++;
+      results[index] = await tasks[index]();
     }
   }
 
@@ -148,105 +303,103 @@ async function runConcurrent(tasks, concurrency) {
   return results;
 }
 
-// ── 主函数 ──
-
 async function main() {
-  const opts = parseArgs(process.argv.slice(2));
-  const connection = await mysql.createConnection(createDbConfig());
+  const options = parseArgs(process.argv.slice(2));
   const aiConfig = getAiConfig();
-  if (!aiConfig.apiKey) throw new Error('需要 AI_API_KEY 或 DEEPSEEK_API_KEY');
 
-  console.log(`\n🎬 动画标题标准化`);
+  if (!aiConfig.apiKey) {
+    throw new Error('需要 AI_API_KEY 或 DEEPSEEK_API_KEY');
+  }
+
+  const connection = await mysql.createConnection(createDbConfig());
+
+  console.log('\n🎬 动画标题标准化');
   console.log(`AI: ${aiConfig.apiUrl} | model: ${aiConfig.model}`);
-  console.log(`模式: ${opts.dryRun ? 'DRY-RUN（不写入）' : 'WRITE（写入数据库）'} | 并发: ${opts.concurrency} | force=${opts.force} | updateTitle=${opts.updateTitle}\n`);
+  console.log(`模式: ${options.dryRun ? 'DRY-RUN' : 'WRITE'} | concurrency=${options.concurrency} | minConfidence=${options.minConfidence} | updateTitle=${options.updateTitle}\n`);
 
-  const stats = { titleChanged: 0, originalAdded: 0, bothChanged: 0, skipped: 0, noReturn: 0, errors: 0 };
+  const stats = { updatedTitle: 0, updatedOriginal: 0, updatedBoth: 0, skipped: 0, rejected: 0, errors: 0 };
 
   try {
     const [rows] = await connection.execute('SELECT id, title, original_title AS originalTitle FROM anime ORDER BY id ASC');
-    const all = Array.isArray(rows) ? rows : [];
+    const allRows = Array.isArray(rows) ? rows : [];
 
-    let candidates = opts.ids ? all.filter(r => opts.ids.includes(r.id)) : all;
-    if (!opts.force) {
+    let candidates = options.ids ? allRows.filter((row) => options.ids.includes(row.id)) : allRows;
+    if (!options.force) {
       const before = candidates.length;
-      candidates = candidates.filter(r => !r.originalTitle || !String(r.originalTitle).trim());
-      console.log(`共 ${all.length} 条，缺少原名 ${candidates.length} 条（已有 ${before - candidates.length} 条跳过）`);
+      candidates = candidates.filter((row) => !sanitizeTitle(row.originalTitle));
+      console.log(`共 ${allRows.length} 条，缺少原名 ${candidates.length} 条（已有 ${before - candidates.length} 条跳过）`);
     } else {
-      console.log(`共 ${all.length} 条，强制处理全部`);
+      console.log(`共 ${allRows.length} 条，强制处理全部`);
     }
-    if (opts.limit) candidates = candidates.slice(0, opts.limit);
+
+    if (options.limit) candidates = candidates.slice(0, options.limit);
+
     console.log(`本次处理: ${candidates.length} 条\n`);
+    if (candidates.length === 0) {
+      console.log('没有需要处理的记录。');
+      return;
+    }
 
-    if (candidates.length === 0) { console.log('没有需要处理的记录。'); return; }
-
-    const tasks = candidates.map((row, i) => async () => {
-      const currentTitle = String(row.title || '').trim();
-      const currentOriginal = String(row.originalTitle || '').trim();
-      const label = `[${i + 1}/${candidates.length}] #${row.id}`;
+    const tasks = candidates.map((row, index) => async () => {
+      const currentTitle = sanitizeTitle(row.title);
+      const currentOriginal = sanitizeTitle(row.originalTitle);
+      const label = `[${index + 1}/${candidates.length}] #${row.id}`;
 
       try {
-        const result = await fetchAiTitleInfo(currentTitle, aiConfig);
-        if (!result) {
-          console.log(`  ${label} "${currentTitle}" ⚠ AI 无返回`);
-          stats.noReturn++;
+        const result = await resolveTitleWithAi(currentTitle, aiConfig);
+        const decision = shouldAcceptResult(currentTitle, result, options.minConfidence);
+        if (!decision.ok) {
+          stats.rejected++;
+          console.log(`  ${label} "${currentTitle}" → 跳过: ${formatRejectReason(decision.reason, result)}`);
           return;
         }
 
-        const titleChanged = opts.updateTitle && result.officialTitle && result.officialTitle !== currentTitle;
-        const originalChanged = result.originalTitle && result.originalTitle !== currentOriginal;
+        const nextOfficial = sanitizeTitle(result.officialTitle);
+        const nextOriginal = sanitizeTitle(result.originalTitle);
+
+        const titleChanged = Boolean(options.updateTitle && nextOfficial && nextOfficial !== currentTitle);
+        const originalChanged = Boolean(nextOriginal && nextOriginal !== currentOriginal);
 
         if (!titleChanged && !originalChanged) {
-          // 没有原名返回，也提示一下
-          if (!result.originalTitle) {
-            console.log(`  ${label} "${currentTitle}" → AI 未识别出原名`);
-            stats.noReturn++;
-          } else {
-            console.log(`  ${label} "${currentTitle}" = 无变化`);
-            stats.skipped++;
-          }
+          stats.skipped++;
+          console.log(`  ${label} "${currentTitle}" = 无变化 (confidence=${result.confidence})`);
           return;
         }
 
         const updates = {};
         const parts = [];
+        if (titleChanged) { updates.title = nextOfficial; parts.push(`中文名: "${currentTitle}" → "${nextOfficial}"`); }
+        if (originalChanged) { updates.original_title = nextOriginal; parts.push(`原名: "${currentOriginal || '(空)'}" → "${nextOriginal}"`); }
 
-        if (titleChanged) {
-          updates.title = result.officialTitle;
-          parts.push(`中文名: "${currentTitle}" → "${result.officialTitle}"`);
-        }
-        if (originalChanged) {
-          updates.original_title = result.originalTitle;
-          parts.push(`原名: "${currentOriginal || '(空)'}" → "${result.originalTitle}"`);
-        }
+        console.log(`  ${label} "${currentTitle}" ✓ ${options.dryRun ? '[dry-run]' : '[写入]'} [confidence=${result.confidence}] ${parts.join(' | ')}`);
 
-        const tag = opts.dryRun ? '[dry-run]' : '[写入]';
-        console.log(`  ${label} ✓ ${tag} ${parts.join(' | ')}`);
-
-        if (!opts.dryRun) {
-          const sets = Object.keys(updates).map(c => `${c} = ?`);
-          sets.push('updatedAt = NOW()');
-          await connection.execute(`UPDATE anime SET ${sets.join(', ')} WHERE id = ?`, [...Object.values(updates), row.id]);
+        if (!options.dryRun) {
+          const columns = Object.keys(updates).map((key) => `${key} = ?`);
+          columns.push('updatedAt = NOW()');
+          await connection.execute(`UPDATE anime SET ${columns.join(', ')} WHERE id = ?`, [...Object.values(updates), row.id]);
         }
 
-        if (titleChanged && originalChanged) stats.bothChanged++;
-        else if (titleChanged) stats.titleChanged++;
-        else stats.originalAdded++;
-      } catch (err) {
+        if (titleChanged && originalChanged) stats.updatedBoth++;
+        else if (titleChanged) stats.updatedTitle++;
+        else stats.updatedOriginal++;
+      } catch (error) {
         stats.errors++;
-        console.error(`  ${label} ✗ 错误: ${err?.message || err}`);
+        console.error(`  ${label} ✗ 错误: ${error?.message || error}`);
       }
     });
 
-    await runConcurrent(tasks, opts.concurrency);
+    await runConcurrent(tasks, options.concurrency);
 
-    // 汇总
-    const total = stats.titleChanged + stats.originalAdded + stats.bothChanged;
-    console.log(`\n${'─'.repeat(50)}`);
-    console.log(`完成: 变更=${total} (仅中文名=${stats.titleChanged}, 仅原名=${stats.originalAdded}, 两者=${stats.bothChanged})`);
-    console.log(`      无变化=${stats.skipped}, 未识别=${stats.noReturn}, 错误=${stats.errors}`);
+    const totalChanged = stats.updatedTitle + stats.updatedOriginal + stats.updatedBoth;
+    console.log(`\n${'─'.repeat(56)}`);
+    console.log(`完成: 变更=${totalChanged} (仅中文名=${stats.updatedTitle}, 仅原名=${stats.updatedOriginal}, 两者=${stats.updatedBoth})`);
+    console.log(`      无变化=${stats.skipped}, 拒绝写入=${stats.rejected}, 错误=${stats.errors}`);
   } finally {
     await connection.end();
   }
 }
 
-main().catch(err => { console.error(err?.message || err); process.exit(1); });
+main().catch((error) => {
+  console.error(error?.message || error);
+  process.exit(1);
+});

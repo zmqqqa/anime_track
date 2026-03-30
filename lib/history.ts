@@ -29,14 +29,14 @@ function mapRowToHistory(row: WatchHistoryRow): WatchHistoryRecord {
 }
 
 export async function getWatchHistory(limit = 1000): Promise<WatchHistoryRecord[]> {
-  const rows = await query<WatchHistoryRow[]>('SELECT id, animeId, animeTitle, episode, watchedAt FROM watch_history ORDER BY watchedAt DESC LIMIT ?', [String(limit)]);
+  const rows = await query<WatchHistoryRow[]>('SELECT id, animeId, animeTitle, episode, watchedAt FROM watch_history ORDER BY watchedAt DESC LIMIT ?', [Math.floor(Number(limit))]);
   return rows.map(mapRowToHistory);
 }
 
 export async function getWatchHistorySince(since: Date, limit = 1000): Promise<WatchHistoryRecord[]> {
   const rows = await query<WatchHistoryRow[]>(
     'SELECT id, animeId, animeTitle, episode, watchedAt FROM watch_history WHERE watchedAt >= ? ORDER BY watchedAt DESC LIMIT ?',
-    [since, String(limit)]
+    [since, Math.floor(Number(limit))]
   );
   return rows.map(mapRowToHistory);
 }
@@ -111,7 +111,7 @@ export async function getWatchHistoryPaginated(page: number, pageSize: number, s
     dataSql += ' ORDER BY watchedAt DESC LIMIT ? OFFSET ?';
 
     const [countResult] = await query<(RowDataPacket & { total: number })[]>(countSql, params);
-    const rows = await query<WatchHistoryRow[]>(dataSql, [...params, String(pageSize), String(offset)]);
+    const rows = await query<WatchHistoryRow[]>(dataSql, [...params, Math.floor(Number(pageSize)), Math.floor(Number(offset))]);
 
     return {
         records: rows.map(mapRowToHistory),

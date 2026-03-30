@@ -3,10 +3,11 @@ module.exports = {
     name: 'anime-track',
     cwd: '/home/ubuntu/anime_track',
     script: 'scripts/deploy/prod_start_guard.js',
+    exec_mode: 'fork',
     env: {
       NODE_ENV: 'production',
       PORT: '3000',
-      HOST: '0.0.0.0'
+      HOST: '127.0.0.1'
     },
     node_args: '--max-old-space-size=256',
     instances: 1,

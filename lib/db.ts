@@ -26,6 +26,6 @@ export const pool =
 if (process.env.NODE_ENV !== 'production') global.mysqlPool = pool;
 
 export async function query<T = unknown>(sql: string, params?: unknown[]) {
-  const [rows] = await pool.execute(sql, params);
+  const [rows] = await pool.query(sql, params);
   return rows as T;
 }

@@ -67,9 +67,36 @@ function createDbConfig(overrides = {}) {
   };
 }
 
+/**
+ * 返回当前 CST (UTC+8) 时间的文件名安全时间戳，格式 "2026-03-31_14-05-00"。
+ * 统一替代各脚本里重复的 new Date(Date.now() + 8*3600000).toISOString() 写法。
+ */
+function nowCSTTimestamp() {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).format(new Date()).replace(' ', '_').replace(/:/g, '-');
+}
+
+/**
+ * 返回当前 CST 时间可读字符串，格式 "2026-03-31 14:05:00"（用于注释/日志）。
+ */
+function nowCSTReadable() {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).format(new Date());
+}
+
 module.exports = {
   projectRoot,
   loadDatabaseEnv,
   requireEnv,
   createDbConfig,
+  nowCSTTimestamp,
+  nowCSTReadable,
 };

@@ -22,7 +22,40 @@ const { fetchAiAnimeMetadata } = aiMetadataSource as unknown as {
   } | null>;
 };
 
-const AI_API_URL = process.env.AI_API_URL?.trim() || 'https://api.deepseek.com/chat/completions';
+const DEFAULT_AI_URL = 'https://api.deepseek.com/chat/completions';
+
+function normalizeAiApiUrl(value: string | undefined): string {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return DEFAULT_AI_URL;
+  }
+
+  const withoutTrailingSlash = normalized.replace(/\/+$/, '');
+  if (/ark\.cn-[^.]+\.volces\.com\/api\/v\d+$/i.test(withoutTrailingSlash)) {
+    return `${withoutTrailingSlash}/chat/completions`;
+  }
+
+  return withoutTrailingSlash;
+}
+
+function shouldUseJsonFormat(apiUrl: string, model: string): boolean {
+  const override = String(process.env.AI_JSON_FORMAT ?? '').trim().toLowerCase();
+  if (['false', '0', 'off', 'no'].includes(override)) {
+    return false;
+  }
+
+  if (['true', '1', 'on', 'yes'].includes(override)) {
+    return true;
+  }
+
+  if (apiUrl.includes('.volces.com') || model.toLowerCase().startsWith('ep-')) {
+    return false;
+  }
+
+  return true;
+}
+
+const AI_API_URL = normalizeAiApiUrl(process.env.AI_API_URL);
 const AI_MODEL = process.env.AI_MODEL?.trim() || 'deepseek-chat';
 
 export interface EnrichedAnimeData {
@@ -82,6 +115,39 @@ type AiMessage = {
   role: 'system' | 'user' | 'assistant';
   content: string;
 };
+
+function parseJsonFromAiContent<T>(content: string): T | null {
+  const normalized = content.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(normalized) as T;
+  } catch {
+    const fencedMatch = normalized.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    const fencedContent = fencedMatch?.[1]?.trim();
+    if (fencedContent) {
+      try {
+        return JSON.parse(fencedContent) as T;
+      } catch {
+        // Fall through to object extraction.
+      }
+    }
+
+    const objectMatch = normalized.match(/\{[\s\S]*\}/);
+    const objectContent = objectMatch?.[0]?.trim();
+    if (!objectContent) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(objectContent) as T;
+    } catch {
+      return null;
+    }
+  }
+}
 
 function getApiKey(): string {
   return process.env.AI_API_KEY?.trim() || process.env.DEEPSEEK_API_KEY?.trim() || '';
@@ -222,12 +288,18 @@ function cleanWatchSentenceTitle(text: string): string {
     .replace(/^(我)?\s*(今天|昨天|前天|昨晚|今晚|刚刚|刚才)?\s*(看了|补了|追了|刷了|重刷了|二刷了|看完了|看完|看)\s*/i, '')
     .replace(/\s+(今天|昨天|前天|昨晚|今晚)\s*(看了|补了|追了|刷了|重刷了|二刷了|看完了|看完|看)\s+/gi, ' ')
     .replace(/\s*(今天|昨天|前天|昨晚|今晚|刚刚|刚才)?\s*(看了|补了|追了|刷了|重刷了|二刷了|看完了|看完|看)\s*$/i, ' ')
+    .replace(/\s*(以前|之前|小时候|很久前|早就)?\s*(看完了|看完的|看完|看过了|看过的|看过|补完了|补完的|补完|补过了|补过的|补过|追完了|追完的|追完|追过了|追过的|追过|看了|补了|追了|刷了|重刷了|二刷了|看)\s*$/i, ' ')
+    .replace(/\s*(以前|之前|小时候|很久前|早就)\s*$/i, ' ')
     .replace(/第\s*[0-9一二三四五六七八九十百零两〇]+\s*季/gi, ' ')
     .replace(/第\s*[0-9一二三四五六七八九十百零两〇]+\s*[集话話]/gi, ' ')
     .replace(/[，。,.!！?？]/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/\s*的\s*$/g, '')
     .trim();
+}
+
+function containsResidualWatchIntent(text: string): boolean {
+  return /(以前|之前|小时候|很久前|早就|看完|看过|补完|补过|追完|追过|看了|补了|追了|刷了|重刷|二刷)/i.test(text);
 }
 
 function parseWatchInputFallback(inputText: string): ParsedWatchInput | null {
@@ -273,7 +345,7 @@ function parseWatchInputFallback(inputText: string): ParsedWatchInput | null {
 
 function parseQuickRecordBatchFallback(inputText: string): ParsedQuickRecordBatch {
   const single = parseWatchInputFallback(inputText);
-  if (!single) {
+  if (!single || containsResidualWatchIntent(single.animeTitle)) {
     return { records: [] };
   }
 
@@ -375,7 +447,7 @@ async function requestAiJson<T>(messages: AiMessage[], temperature = 0.2): Promi
         model: AI_MODEL,
         messages,
         temperature,
-        ...(process.env.AI_JSON_FORMAT !== 'false' ? { response_format: { type: 'json_object' } } : {}),
+        ...(shouldUseJsonFormat(AI_API_URL, AI_MODEL) ? { response_format: { type: 'json_object' } } : {}),
       }),
       cache: 'no-store',
       signal: controller.signal,
@@ -393,7 +465,7 @@ async function requestAiJson<T>(messages: AiMessage[], temperature = 0.2): Promi
       return null;
     }
 
-    return JSON.parse(content) as T;
+    return parseJsonFromAiContent<T>(content);
   } catch (error) {
     console.error('AI request error:', error);
     return null;

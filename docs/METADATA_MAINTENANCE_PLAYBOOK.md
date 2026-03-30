@@ -83,13 +83,14 @@ enrich_titles → enrich_metadata → enrich_cast
 
 ### 第 1 步：enrich_titles（AI 标题标准化）
 
-- 用 AI 将用户输入的标题标准化为官方简体中文名 + 日文/英文原名
-- 默认并发 5 路
-- 选项：`--write`、`--force`、`--no-update-title`、`--limit=N`、`--ids=`、`--concurrency=5`
+- 纯 AI 两阶段处理：先识别候选标题，再由第二轮 AI 审核候选是否可靠
+- 低把握结果直接跳过，不为了“有答案”而强行写库
+- 默认并发 3 路
+- 选项：`--write`、`--force`、`--no-update-title`、`--limit=N`、`--ids=`、`--concurrency=3`、`--min-confidence=75`
 
 ### 第 2 步：enrich_metadata（元数据补全）
 
-- 用标准化后的标题查 Bangumi + Jikan API 补全 score、totalEpisodes、summary、tags 等
+- 用标准化后的标题查 Bangumi API 补全 score、totalEpisodes、summary、tags 等
 - 不足字段交给 AI 兜底
 - 复用 `lib/metadata/provider-source.js` 和 `lib/metadata/merge-policy.js`
 - 默认并发 3 路
@@ -97,7 +98,7 @@ enrich_titles → enrich_metadata → enrich_cast
 
 ### 第 3 步：enrich_cast（声优信息）
 
-- 从 Bangumi + Jikan 获取声优列表
+- 从 Bangumi 获取声优列表
 - 用 AI 生成中文别名
 - 默认并发 3 路
 - 选项：`--write`、`--force`、`--limit=N`、`--ids=`、`--concurrency=3`、`--no-aliases`
@@ -131,7 +132,7 @@ enrich_titles → enrich_metadata → enrich_cast
 
 ### provider-first
 
-优先走 Bangumi / Jikan，AI 只做兜底：
+优先走 Bangumi，AI 只做兜底：
 
 - `originalTitle`、`coverUrl`、`score`、`totalEpisodes`、`premiereDate`、`cast`、`castAliases`、`isFinished`
 

@@ -19,7 +19,7 @@ const requiredBuildFiles = [
 ];
 
 const port = String(process.env.PORT || '3000');
-const host = process.env.HOST || '0.0.0.0';
+const host = process.env.HOST || '127.0.0.1';
 const lockWaitTimeoutMs = Number(process.env.PROD_GUARD_LOCK_TIMEOUT_MS || 10 * 60 * 1000);
 const lockPollMs = Number(process.env.PROD_GUARD_LOCK_POLL_MS || 2000);
 

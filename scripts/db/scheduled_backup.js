@@ -1,24 +1,40 @@
 /**
- * 全量数据备份脚本（纯 Node.js，不依赖 mysqldump）
+ * 定时备份脚本 — 配合 cron 使用
  *
- * 导出 anime + watch_history + users 三张表为 SQL INSERT 文件。
- * users 表的密码哈希会一起导出，备份文件不应提交到 Git 仓库。
+ * 导出 anime + watch_history 两张表为 SQL 文件，自动轮转旧备份。
  *
  * 用法：
- *   node scripts/db/export_full_backup.js                 # 默认输出到 backups/
- *   node scripts/db/export_full_backup.js --no-users      # 不包含 users 表
- *   node scripts/db/export_full_backup.js -o path/to.sql  # 指定输出路径
+ *   node scripts/db/scheduled_backup.js              # 默认保留 10 份
+ *   node scripts/db/scheduled_backup.js --keep 30    # 保留 30 份
+ *   node scripts/db/scheduled_backup.js --keep 5     # 保留 5 份
  */
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2');
 const mysqlPromise = require('mysql2/promise');
 const { createDbConfig, projectRoot, nowCSTTimestamp, nowCSTReadable } = require('../shared/db_env');
-const backupsDir = path.join(projectRoot, 'backups');
+
+const BACKUP_DIR = path.join(projectRoot, 'backups');
+const BACKUP_PREFIX = 'scheduled-backup-';
+const DEFAULT_KEEP = 10;
 
 // ---------------------------------------------------------------------------
-// SQL value helpers
+// helpers
 // ---------------------------------------------------------------------------
+
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let keep = DEFAULT_KEEP;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--keep' && args[i + 1]) {
+      const n = parseInt(args[++i], 10);
+      if (n > 0) keep = n;
+    }
+  }
+
+  return { keep };
+}
 
 function normalizeJsonValue(value) {
   if (value === null || value === undefined) return null;
@@ -41,44 +57,40 @@ function buildInsert(table, columns, row) {
 }
 
 // ---------------------------------------------------------------------------
-// CLI args
+// 轮转：删除超出保留数量的旧文件
 // ---------------------------------------------------------------------------
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  let outputFile = null;
-  let includeUsers = true;
+function rotateBackups(keep) {
+  if (!fs.existsSync(BACKUP_DIR)) return;
 
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--no-users') {
-      includeUsers = false;
-    } else if (args[i] === '-o' && args[i + 1]) {
-      outputFile = path.resolve(args[++i]);
-    } else if (!args[i].startsWith('-')) {
-      outputFile = path.resolve(args[i]);
-    }
+  const files = fs.readdirSync(BACKUP_DIR)
+    .filter((f) => f.startsWith(BACKUP_PREFIX) && f.endsWith('.sql'))
+    .sort();
+
+  if (files.length <= keep) return;
+
+  const toDelete = files.slice(0, files.length - keep);
+  for (const f of toDelete) {
+    fs.unlinkSync(path.join(BACKUP_DIR, f));
+    console.log(`[backup] 删除旧备份: ${f}`);
   }
-
-  if (!outputFile) {
-    const ts = nowCSTTimestamp();
-    if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
-    outputFile = path.join(backupsDir, `full-backup-${ts}.sql`);
-  }
-
-  return { outputFile, includeUsers };
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// main
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const { outputFile, includeUsers } = parseArgs();
+  const { keep } = parseArgs();
+
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  }
 
   const connection = await mysqlPromise.createConnection(createDbConfig());
 
   try {
-    // ---- anime ----
+    // ---- 查询数据 ----
     const [animeRows] = await connection.query(`
       SELECT
         id, title, original_title, coverUrl, status, score,
@@ -99,7 +111,6 @@ async function main() {
       'cast', 'cast_aliases', 'isFinished', 'createdAt', 'updatedAt',
     ];
 
-    // ---- watch_history ----
     const [historyRows] = await connection.query(`
       SELECT
         id, animeId, animeTitle, episode,
@@ -109,28 +120,16 @@ async function main() {
 
     const historyColumns = ['id', 'animeId', 'animeTitle', 'episode', 'watchedAt'];
 
-    // ---- users (optional) ----
-    let userRows = [];
-    const userColumns = ['id', 'username', 'password_hash', 'name', 'role',
-      'createdAt', 'updatedAt'];
+    // ---- 构建 SQL ----
+    const ts = nowCSTTimestamp();
+    const fileName = `${BACKUP_PREFIX}${ts}.sql`;
+    const filePath = path.join(BACKUP_DIR, fileName);
 
-    if (includeUsers) {
-      const [rows] = await connection.query(`
-        SELECT
-          id, username, password_hash, name, role,
-          DATE_FORMAT(createdAt, '%Y-%m-%d %H:%i:%s') AS createdAt,
-          DATE_FORMAT(updatedAt, '%Y-%m-%d %H:%i:%s') AS updatedAt
-        FROM users ORDER BY id ASC
-      `);
-      userRows = rows;
-    }
-
-    // ---- build output ----
     const lines = [
-      '-- Full database backup (export_full_backup.js)',
+      '-- Scheduled backup (scheduled_backup.js)',
       `-- Database: ${process.env.MYSQL_DATABASE}`,
       `-- Generated: ${nowCSTReadable()} (UTC+8)`,
-      `-- Tables: anime (${animeRows.length}), watch_history (${historyRows.length})${includeUsers ? `, users (${userRows.length})` : ''}`,
+      `-- Tables: anime (${animeRows.length}), watch_history (${historyRows.length})`,
       '',
       'SET NAMES utf8mb4;',
       'SET FOREIGN_KEY_CHECKS = 0;',
@@ -157,19 +156,7 @@ async function main() {
       lines.push(buildInsert('watch_history', historyColumns, row));
     }
 
-    if (includeUsers && userRows.length > 0) {
-      lines.push('');
-      lines.push('-- ============================================================');
-      lines.push('-- users');
-      lines.push('-- ============================================================');
-      lines.push('DELETE FROM `users`;');
-      lines.push('');
-      for (const row of userRows) {
-        lines.push(buildInsert('users', userColumns, row));
-      }
-    }
-
-    // ---- auto increment reset ----
+    // ---- auto increment ----
     lines.push('');
     if (animeRows.length > 0) {
       lines.push(`ALTER TABLE \`anime\` AUTO_INCREMENT = ${Number(animeRows[animeRows.length - 1].id) + 1};`);
@@ -177,28 +164,23 @@ async function main() {
     if (historyRows.length > 0) {
       lines.push(`ALTER TABLE \`watch_history\` AUTO_INCREMENT = ${Number(historyRows[historyRows.length - 1].id) + 1};`);
     }
-    if (userRows.length > 0) {
-      lines.push(`ALTER TABLE \`users\` AUTO_INCREMENT = ${Number(userRows[userRows.length - 1].id) + 1};`);
-    }
     lines.push('SET FOREIGN_KEY_CHECKS = 1;');
     lines.push('');
 
-    // ---- write file ----
-    const dir = path.dirname(outputFile);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(outputFile, lines.join('\n'), 'utf8');
+    // ---- 写文件 ----
+    fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
+    console.log(`[backup] 备份完成: ${fileName}`);
+    console.log(`[backup] anime: ${animeRows.length} 条, watch_history: ${historyRows.length} 条`);
 
-    const rel = path.relative(projectRoot, outputFile);
-    console.log(`Backup complete → ${rel}`);
-    console.log(`  anime:         ${animeRows.length} rows`);
-    console.log(`  watch_history: ${historyRows.length} rows`);
-    if (includeUsers) console.log(`  users:         ${userRows.length} rows`);
+    // ---- 轮转 ----
+    rotateBackups(keep);
+    console.log(`[backup] 保留策略: 最近 ${keep} 份`);
   } finally {
     await connection.end();
   }
 }
 
 main().catch((err) => {
-  console.error(err.message || err);
+  console.error('[backup] 备份失败:', err.message);
   process.exit(1);
 });
