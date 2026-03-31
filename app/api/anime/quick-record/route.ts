@@ -1,17 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { NextRequest } from 'next/server';
 import { createAnimeRecord, findAnimeByTitle, updateAnimeRecord, CreateAnimeDTO, listAnimeRecordsByExactTitle, AnimeRecord } from '@/lib/anime';
 import { addBatchWatchHistory, addWatchHistory } from '@/lib/history';
 import { parseQuickRecordBatch, type ParsedQuickRecordIntent } from '@/lib/ai';
 import { enrichAnimeInput } from '@/lib/anime-enrichment';
+import { apiError, apiSuccess, requireAdmin } from '@/lib/api-response';
 import {
   detectRewatchTag, resolveNextRewatchTag, shouldAutoResolveRewatch,
   normalizeDate, resolveRecordedDateString, resolveIntentStatus, resolveTargetProgress,
   mergeStringArrays, sameStringArray, hasPatchChanges, buildRecognition,
 } from './_helpers';
-
-type SessionUser = { role?: string };
 
 type QuickRecordResult = {
   created: boolean;
@@ -170,21 +167,21 @@ async function processQuickRecordIntent(
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if ((session?.user as SessionUser | undefined)?.role !== 'admin') {
-    return NextResponse.json({ error: '只有管理员可以使用 AI 录入' }, { status: 403 });
+  const auth = await requireAdmin('只有管理员可以使用 AI 录入');
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {
     const body = await request.json();
     const text = typeof body?.text === 'string' ? body.text.trim() : '';
     if (!text) {
-      return NextResponse.json({ error: '请输入一句话记录' }, { status: 400 });
+      return apiError('请输入一句话记录', 400);
     }
 
     const parsedBatch = await parseQuickRecordBatch(text);
     if (!Array.isArray(parsedBatch.records) || parsedBatch.records.length === 0) {
-      return NextResponse.json({ error: '未能识别番剧名称，请换一种说法' }, { status: 400 });
+      return apiError('未能识别番剧名称，请换一种说法', 400);
     }
 
     const manualRewatchTag = typeof body?.rewatchTag === 'string' ? body.rewatchTag.trim() : '';
@@ -200,11 +197,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (results.length === 0) {
-      return NextResponse.json({ error: errors[0]?.error || 'AI 录入失败', errors }, { status: 500 });
+      return apiError(errors[0]?.error || 'AI 录入失败', 500, { errors });
     }
 
     const first = results[0];
-    return NextResponse.json({
+    return apiSuccess({
       ok: true,
       count: results.length,
       createdCount: results.filter((r) => r.created).length,
@@ -217,6 +214,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Quick record error:', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'AI 录入失败' }, { status: 500 });
+    return apiError(error instanceof Error ? error.message : 'AI 录入失败', 500);
   }
 }

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import { fetchBlob, fetchJson } from '@/lib/client-api';
 
 interface BackupFile {
   name: string;
@@ -34,12 +35,10 @@ export default function BackupPageClient() {
   const fetchBackups = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/backup');
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const data = await fetchJson<{ backups: BackupFile[] }>('/api/admin/backup', undefined, '加载备份列表失败');
       setBackups(data.backups);
-    } catch {
-      toast.error('加载备份列表失败');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '加载备份列表失败');
     } finally {
       setLoading(false);
     }
@@ -52,9 +51,7 @@ export default function BackupPageClient() {
   const handleCreateBackup = async () => {
     setCreating(true);
     try {
-      const res = await fetch('/api/admin/backup', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      await fetchJson<{ success: true }>('/api/admin/backup', { method: 'POST' }, '备份失败');
       toast.success('备份创建成功');
       fetchBackups();
     } catch (err) {
@@ -70,16 +67,15 @@ export default function BackupPageClient() {
 
   const handleDeleteBackup = async (name: string) => {
     try {
-      const res = await fetch('/api/admin/backup', {
+      await fetchJson<{ success: true }>('/api/admin/backup', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
-      });
-      if (!res.ok) throw new Error();
+      }, '删除失败');
       toast.success('已删除备份');
       fetchBackups();
-    } catch {
-      toast.error('删除失败');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '删除失败');
     } finally {
       setDeleteConfirm(null);
     }
@@ -88,9 +84,7 @@ export default function BackupPageClient() {
   const handleExport = async (format: 'json' | 'csv') => {
     setExporting(format);
     try {
-      const res = await fetch(`/api/admin/export?format=${format}`);
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
+      const blob = await fetchBlob(`/api/admin/export?format=${format}`, undefined, '导出失败');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -98,8 +92,8 @@ export default function BackupPageClient() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success(`${format.toUpperCase()} 导出成功`);
-    } catch {
-      toast.error('导出失败');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '导出失败');
     } finally {
       setExporting(null);
     }
@@ -194,7 +188,7 @@ export default function BackupPageClient() {
             {backups.map((backup) => (
               <div
                 key={backup.name}
-                className="flex items-center justify-between px-5 py-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all group"
+                className="surface-card-muted flex items-center justify-between px-5 py-4 rounded-2xl hover:bg-white/[0.04] transition-all group"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm md:text-base text-zinc-300 truncate font-medium">{backup.name}</p>

@@ -229,7 +229,7 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
                     <p className="text-sm text-zinc-400 mt-2 leading-6">{statsData.title}，现在会额外给出高频观看时段和这一段时间对整库的推进占比。</p>
                 </div>
                 
-                <div className="flex bg-zinc-900/90 p-1.5 rounded-2xl border border-white/10 shadow-xl self-start lg:self-auto">
+                <div className="surface-card-muted flex p-1.5 rounded-2xl shadow-xl self-start lg:self-auto">
                     {(['week', 'month', 'year'] as const).map((s) => (
                         <button
                             key={s}
@@ -242,7 +242,7 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 xl:grid-cols-4 divide-x divide-white/[0.06] rounded-2xl border border-white/[0.06] bg-white/[0.02] px-1 py-3">
+            <div className="surface-card-muted grid grid-cols-2 xl:grid-cols-4 divide-x divide-white/[0.06] rounded-2xl px-1 py-3">
                 <div className="flex flex-col gap-1 px-5 first:pl-0">
                     <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">总看番集数</span>
                     <div className="flex items-baseline gap-1.5">
@@ -274,7 +274,7 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px] gap-5">
-                <div className="h-[320px] rounded-[28px] border border-white/5 bg-[linear-gradient(180deg,rgba(8,14,13,0.66),rgba(7,11,11,0.3))] p-4 md:p-5">
+                <div className="surface-card h-[320px] rounded-[28px] bg-[linear-gradient(180deg,rgba(8,14,13,0.66),rgba(7,11,11,0.3))] p-4 md:p-5">
                     <div className="mb-3 flex items-center justify-between gap-3">
                         <div className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Viewer Activity</div>
                         <div className="hidden md:flex rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-violet-200/75">
@@ -290,21 +290,21 @@ export default memo(function AdvancedActivityStats({ history, animeList }: { his
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 xl:flex xl:flex-col gap-2 xl:h-64">
-                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06] rounded-xl bg-white/[0.02]">
+                    <div className="surface-card-muted flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06] rounded-xl">
                         <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">Peak Point</div>
                         <div className="flex items-end justify-between gap-2">
                             <span className="text-xl font-display text-zinc-100 leading-tight">{statsData.peakPoint.label}</span>
                             <span className="text-[10px] text-zinc-500 font-mono pb-0.5">max {statsData.peakPoint.value} EP</span>
                         </div>
                     </div>
-                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06] rounded-xl bg-white/[0.02]">
+                    <div className="surface-card-muted flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06] rounded-xl">
                         <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">Active Days</div>
                         <div className="flex items-end justify-between gap-2">
                             <span className="text-xl font-mono text-emerald-300">{statsData.activeDays}</span>
                             <span className="text-[10px] text-zinc-500 pb-0.5">有记录天</span>
                         </div>
                     </div>
-                    <div className="flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06] rounded-xl bg-white/[0.02]">
+                    <div className="surface-card-muted flex-1 px-4 py-3 flex flex-col justify-between border-l border-white/[0.06] rounded-xl">
                         <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">Library Cov.</div>
                         <div className="flex items-end justify-between gap-2">
                             <span className="text-xl font-mono text-cyan-300">{statsData.libraryCoverage}%</span>

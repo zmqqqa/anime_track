@@ -5,6 +5,33 @@ import { addBatchWatchHistory, deleteWatchHistoryByAnime } from '@/lib/history';
 import { query } from '@/lib/db';
 import { apiSuccess, apiError, requireAdmin } from '@/lib/api-response';
 
+function areStringArraysEqual(left: unknown, right: unknown) {
+  const leftValues = normalizeStringArray(left) || [];
+  const rightValues = normalizeStringArray(right) || [];
+
+  if (leftValues.length !== rightValues.length) {
+    return false;
+  }
+
+  return leftValues.every((value, index) => value === rightValues[index]);
+}
+
+function areAllowedFieldValuesEqual(key: string, nextValue: unknown, currentValue: unknown) {
+  if (key === 'tags' || key === 'cast' || key === 'castAliases') {
+    return areStringArraysEqual(nextValue, currentValue);
+  }
+
+  if (key === 'progress' || key === 'score' || key === 'totalEpisodes' || key === 'durationMinutes') {
+    if (currentValue === undefined || currentValue === null || currentValue === '') {
+      return false;
+    }
+
+    return Number(currentValue) === nextValue;
+  }
+
+  return nextValue === currentValue;
+}
+
 function parseId(idParam: string) {
   const id = Number(idParam);
   if (!Number.isFinite(id) || id <= 0) {
@@ -54,6 +81,8 @@ export async function PATCH(
   if (!id) return apiError('Invalid ID', 400);
 
   const before = await getAnimeRecord(id);
+  if (!before) return apiError('Not found', 404);
+
   const body = await request.json();
   const normalizedBody = {
     ...body,
@@ -64,11 +93,23 @@ export async function PATCH(
   const allowedKeys = ['title', 'originalTitle', 'status', 'progress', 'score', 'totalEpisodes', 'notes', 'coverUrl', 'durationMinutes', 'tags', 'summary', 'startDate', 'endDate', 'premiereDate', 'cast', 'castAliases', 'isFinished'] as const;
   type AllowedKey = (typeof allowedKeys)[number];
   const updateData: Partial<AnimeRecord> = {};
+  const updateRecord = updateData as Partial<Record<AllowedKey, unknown>>;
 
   for (const key of allowedKeys) {
     const value = normalizedBody[key];
     if (value !== undefined) {
-      (updateData as Record<AllowedKey, unknown>)[key] = value;
+      updateRecord[key] = value;
+    }
+  }
+
+  for (const key of allowedKeys) {
+    const value = updateRecord[key];
+    if (value === undefined) {
+      continue;
+    }
+
+    if (areAllowedFieldValuesEqual(key, value, before[key])) {
+      delete updateRecord[key];
     }
   }
 

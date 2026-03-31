@@ -55,7 +55,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
-      <div className="w-full max-w-md p-8 glass-panel border border-white/10 rounded-3xl shadow-2xl">
+      <div className="w-full max-w-md p-8 glass-panel-strong rounded-3xl shadow-2xl">
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-purple-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg shadow-purple-500/20">
             <span className="text-2xl font-bold">A</span>
@@ -72,7 +72,7 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={isSubmitting}
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-mono"
+              className="surface-input w-full rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-mono"
               required
             />
           </div>
@@ -83,7 +83,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isSubmitting}
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-mono"
+              className="surface-input w-full rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-mono"
               required
             />
           </div>
@@ -111,7 +111,7 @@ export default function LoginPage() {
             type="button"
             onClick={handleGuestLogin}
             disabled={isSubmitting}
-            className="w-full py-3 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-xl font-medium hover:bg-zinc-800 hover:text-white transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
+            className="surface-pill w-full py-3 text-zinc-400 rounded-xl font-medium hover:bg-zinc-800 hover:text-white transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <span className="flex items-center justify-center gap-2">
               {isSubmitting && loginMode === 'guest' && <span className="loading-spinner border-zinc-500/40 border-t-zinc-100" aria-hidden="true" />}

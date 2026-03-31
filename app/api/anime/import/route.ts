@@ -1,6 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { NextRequest } from 'next/server';
 import {
   createAnimeRecord,
   updateAnimeRecord,
@@ -8,26 +6,23 @@ import {
   AnimeStatus,
   CreateAnimeDTO
 } from '@/lib/anime';
+import { apiError, apiSuccess, requireAdmin } from '@/lib/api-response';
 
 interface IncomingRecord extends Partial<CreateAnimeDTO> {
   title: string;
 }
 
-type SessionUser = {
-  role?: string;
-};
-
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if ((session?.user as SessionUser | undefined)?.role !== 'admin') {
-    return NextResponse.json({ error: '只有管理员可以导入数据' }, { status: 403 });
+  const auth = await requireAdmin('只有管理员可以导入数据');
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {
     const body = await request.json();
     const records = Array.isArray(body.records) ? body.records as IncomingRecord[] : [];
     if (records.length === 0) {
-      return NextResponse.json({ error: 'records 不能为空' }, { status: 400 });
+      return apiError('records 不能为空', 400);
     }
 
     let created = 0;
@@ -66,9 +61,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, created, updated });
+    return apiSuccess({ success: true, created, updated });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '导入失败';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }

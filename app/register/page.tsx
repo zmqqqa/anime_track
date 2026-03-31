@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { fetchJson } from '@/lib/client-api';
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
@@ -18,21 +19,14 @@ export default function RegisterPage() {
     setError("");
 
     try {
-      const res = await fetch("/api/auth/register", {
+      await fetchJson<{ message: string }>("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password, name }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        router.push("/login?registered=true");
-      } else {
-        setError(data.error || "注册失败");
-      }
-    } catch {
-      setError("网络错误，请稍后再试");
+      }, "注册失败");
+      router.push("/login?registered=true");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "网络错误，请稍后再试");
     } finally {
       setLoading(false);
     }
@@ -40,7 +34,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
-      <div className="w-full max-w-md p-8 glass-panel border border-white/10 rounded-3xl shadow-2xl">
+      <div className="w-full max-w-md p-8 glass-panel-strong rounded-3xl shadow-2xl">
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-purple-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg shadow-purple-500/20">
             <span className="text-2xl font-bold">A</span>
@@ -63,7 +57,7 @@ export default function RegisterPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="您的昵称"
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-mono"
+              className="surface-input w-full rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-mono"
             />
           </div>
 
@@ -74,7 +68,7 @@ export default function RegisterPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="用于登录的账号"
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-mono"
+              className="surface-input w-full rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-mono"
               required
             />
           </div>
@@ -86,7 +80,7 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-mono"
+              className="surface-input w-full rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-mono"
               required
             />
           </div>

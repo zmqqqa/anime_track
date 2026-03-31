@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { AnimeRecord, AnimeStatus, ParsedWatchHistory } from '@/lib/dashboard-types';
+import { fetchJson } from '@/lib/client-api';
 import { readSessionCache, writeSessionCache } from '@/lib/hooks-shared';
 
 export function useAnimeData(parsedHistory: ParsedWatchHistory[] = []) {
@@ -21,8 +22,7 @@ export function useAnimeData(parsedHistory: ParsedWatchHistory[] = []) {
         const load = async () => {
             setIsRefreshing(true);
             try {
-                const res = await fetch('/api/anime');
-                const data = await res.json();
+                const data = await fetchJson<AnimeRecord[]>('/api/anime', undefined, '加载番剧数据失败');
                 const entries = Array.isArray(data) ? data : [];
                 setAnimeList(entries);
                 writeSessionCache('dashboard-anime', entries);

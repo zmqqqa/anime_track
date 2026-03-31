@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { fetchJson } from '@/lib/client-api';
 
 type SetupStatus = {
   allowed: boolean;
@@ -52,14 +53,8 @@ export default function SetupPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/setup/bootstrap', { cache: 'no-store' });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload?.error || payload?.message || '读取初始化状态失败');
-      }
-
-      setStatus(payload as SetupStatus);
+      const payload = await fetchJson<SetupStatus>('/api/setup/bootstrap', { cache: 'no-store' }, '读取初始化状态失败');
+      setStatus(payload);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : '读取初始化状态失败');
     } finally {
@@ -76,15 +71,10 @@ export default function SetupPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/setup/bootstrap', {
+      const payload = await fetchJson<{ ok: true; status: SetupStatus }>('/api/setup/bootstrap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload?.error || '初始化失败');
-      }
+      }, '初始化失败');
 
       setStatus(payload.status as SetupStatus);
     } catch (submitError) {
@@ -110,7 +100,7 @@ export default function SetupPage() {
                 </p>
               </div>
             </div>
-            <div className="rounded-[24px] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+            <div className="surface-card rounded-[24px] px-4 py-3 text-sm text-zinc-300">
               <div className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">当前状态</div>
               <div className="mt-2 font-medium text-zinc-100">{isLoading ? '检查中...' : status.message}</div>
             </div>
@@ -149,14 +139,14 @@ export default function SetupPage() {
             </p>
           </div>
 
-          <div className="rounded-[24px] border border-white/8 bg-black/20 p-4 text-sm leading-6 text-zinc-300">
+          <div className="surface-card rounded-[24px] p-4 text-sm leading-6 text-zinc-300">
             <div>1. 准备本地 MySQL 服务</div>
             <div>2. 配置 .env.local 中的 MYSQL_* / NEXTAUTH_* / GUEST_* </div>
             <div>3. 点下面按钮自动建库、建表并导入示例数据</div>
             <div>4. 回到登录页，用访客账号或你自己注册的账号进入</div>
           </div>
 
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.02] p-4 lg:p-5">
+          <div className="surface-card rounded-[24px] p-4 lg:p-5">
             <div className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">最小 .env.local 模板</div>
             <p className="mt-2 text-xs leading-5 text-zinc-500">如果你不知道该填什么，可以先按这个最小模板准备本地环境变量。</p>
             <pre className="mt-4 overflow-x-auto rounded-[20px] border border-white/6 bg-black/30 p-4 text-xs leading-6 text-zinc-200">{envTemplate}</pre>
@@ -202,7 +192,7 @@ export default function SetupPage() {
                   <Link href="/login" className="rounded-full border border-emerald-200/20 bg-black/20 px-4 py-3 text-center text-sm text-emerald-50 transition hover:bg-black/30">
                     去登录页
                   </Link>
-                  <Link href="/register" className="rounded-full border border-white/10 px-4 py-3 text-center text-sm text-zinc-200 transition hover:border-white/15 hover:text-white">
+                  <Link href="/register" className="surface-pill rounded-full px-4 py-3 text-center text-sm text-zinc-200 transition hover:border-white/15 hover:text-white">
                     注册自己的账号
                   </Link>
                 </div>
@@ -229,17 +219,17 @@ export default function SetupPage() {
               type="button"
               onClick={loadStatus}
               disabled={isLoading}
-              className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-sm text-zinc-200 transition hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-50"
+              className="surface-pill rounded-full px-5 py-3 text-sm text-zinc-200 transition hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-50"
             >
               刷新状态
             </button>
-            <Link href="/login" className="rounded-full border border-white/10 px-5 py-3 text-sm text-zinc-400 transition hover:border-white/15 hover:text-zinc-200">
+            <Link href="/login" className="surface-pill rounded-full px-5 py-3 text-sm text-zinc-400 transition hover:border-white/15 hover:text-zinc-200">
               返回登录页
             </Link>
           </div>
 
           <div className="text-xs leading-6 text-zinc-500">
-            如果你是在编辑器里查看仓库，详细的新手说明写在 docs/LOCAL_SETUP.md。README 顶部也有对应入口。
+            如果你是在编辑器里查看仓库，README 顶部保留了最基本的启动说明。
           </div>
         </section>
       </div>

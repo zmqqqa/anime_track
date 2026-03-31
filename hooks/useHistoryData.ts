@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { WatchHistoryRecord, ParsedWatchHistory } from '@/lib/dashboard-types';
+import { fetchJson } from '@/lib/client-api';
 import { readSessionCache, writeSessionCache } from '@/lib/hooks-shared';
 
 export function useHistoryData() {
@@ -35,8 +36,7 @@ export function useHistoryData() {
         const load = async () => {
             setIsRefreshing(true);
             try {
-                const res = await fetch('/api/history?days=370&limit=800');
-                const data = await res.json();
+                const data = await fetchJson<{ entries?: WatchHistoryRecord[] }>('/api/history?days=370&limit=800', undefined, '加载观看历史失败');
                 const entries = Array.isArray(data?.entries) ? data.entries : [];
                 setWatchHistory(entries);
                 writeSessionCache('dashboard-history', entries);

@@ -13,7 +13,7 @@ interface EmptyStateProps {
 export default function EmptyState({ icon = '📺', title, description, action }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-20 px-8">
-      <div className="w-20 h-20 rounded-[24px] bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/5 flex items-center justify-center mb-5">
+      <div className="surface-card-muted w-20 h-20 rounded-[24px] flex items-center justify-center mb-5">
         <span className="text-3xl">{icon}</span>
       </div>
       <h3 className="text-base font-display font-semibold text-zinc-200 mb-2">{title}</h3>

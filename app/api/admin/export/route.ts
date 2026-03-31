@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
 import { listAnimeRecords } from '@/lib/anime';
 import { getWatchHistory } from '@/lib/history';
-
-type SessionUser = { role?: string };
+import { requireAdmin } from '@/lib/api-response';
 
 function escapeCsvValue(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -17,9 +14,9 @@ function escapeCsvValue(value: unknown): string {
 
 /** GET — export data as JSON or CSV */
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if ((session?.user as SessionUser | undefined)?.role !== 'admin') {
-    return NextResponse.json({ error: '需要管理员权限' }, { status: 403 });
+  const auth = await requireAdmin('需要管理员权限');
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   const format = request.nextUrl.searchParams.get('format') || 'json';

@@ -24,7 +24,7 @@ export default memo(function ActivityFeed({ history }: { history: WatchHistoryRe
                     <h4 className="text-[10px] font-mono text-zinc-500 mb-4 tracking-[0.28em] uppercase">{date}</h4>
                     <div className="space-y-3">
                         {items.map(item => (
-                            <div key={item.id} className="group rounded-[22px] border border-white/5 bg-white/[0.02] px-4 py-3 hover:border-emerald-300/20 hover:bg-white/[0.04] transition-all duration-300">
+                            <div key={item.id} className="group surface-card-muted rounded-[22px] px-4 py-3 hover:border-emerald-300/20 hover:bg-white/[0.04] transition-all duration-300">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <div className="text-[11px] uppercase tracking-[0.24em] text-zinc-600">Watch Log</div>
@@ -32,7 +32,7 @@ export default memo(function ActivityFeed({ history }: { history: WatchHistoryRe
                                             观看 <span className="font-semibold text-primary/90">{item.animeTitle}</span>
                                         </span>
                                     </div>
-                                    <span className="shrink-0 text-[10px] font-mono text-zinc-500 bg-zinc-900/70 px-2 py-1 rounded-full border border-white/5">
+                                    <span className="surface-pill shrink-0 text-[10px] font-mono text-zinc-500 px-2 py-1 rounded-full">
                                         EP {item.episode}
                                     </span>
                                 </div>

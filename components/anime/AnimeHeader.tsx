@@ -28,7 +28,7 @@ export default function AnimeHeader({
       <div className="flex items-center gap-2">
           <Link
               href="/anime/timeline"
-              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-white/10 hover:bg-zinc-800 text-zinc-300 rounded-lg text-sm font-medium transition-all"
+                className="surface-pill flex items-center gap-2 px-4 py-2 hover:bg-zinc-800 text-zinc-300 rounded-lg text-sm font-medium transition-all"
           >
               <CalendarDaysIcon className="w-4 h-4" />
               <span>追番时光机</span>

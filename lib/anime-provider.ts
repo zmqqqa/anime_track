@@ -1,3 +1,5 @@
+import { normalizeDateString } from './date-utils.js';
+
 export interface AnimeMetadata {
     coverUrl?: string;
     totalEpisodes?: number;
@@ -98,15 +100,7 @@ function pickBestMatch(candidates: BangumiV0Subject[], keyword: string): Bangumi
     return partial ?? candidates[0] ?? null;
 }
 
-export function normalizeDate(value: string | undefined): string | undefined {
-    if (!value) return undefined;
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-    const parsed = new Date(trimmed);
-    if (Number.isNaN(parsed.getTime())) return undefined;
-    return parsed.toISOString().slice(0, 10);
-}
+export const normalizeDate = normalizeDateString;
 
 function extractIsFinished(detail: BangumiV0Subject): boolean | undefined {
     const endEntry = detail.infobox?.find(i => i.key === '播放结束' || i.key === '放送结束');

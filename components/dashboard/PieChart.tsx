@@ -94,7 +94,7 @@ export function PieChart({ data, size = 168 }: PieChartProps) {
   if (!chartData.length) {
     return (
       <div
-        className="flex items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-sm text-zinc-500"
+        className="surface-card-muted flex items-center justify-center rounded-full text-sm text-zinc-500"
         style={{ width: size, height: size }}
       >
         暂无数据

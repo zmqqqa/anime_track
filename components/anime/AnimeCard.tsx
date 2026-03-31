@@ -19,6 +19,8 @@ interface AnimeCardProps {
   onEdit: (item: AnimeCardItem) => void;
   updateProgress: (id: number, current: number, total?: number | null) => Promise<void>;
   isAdmin?: boolean;
+  detailReturnTo: string;
+  onOpenDetail: () => void;
 }
 
 function resolveRewatchTag(tags?: string[]): string | undefined {
@@ -31,18 +33,19 @@ function resolveRewatchTag(tags?: string[]): string | undefined {
     .find((tag) => /^([0-9]{1,3}|[一二两三四五六七八九十]+)刷$/i.test(tag));
 }
 
-export default memo(function AnimeCard({ item, onEdit, updateProgress, isAdmin = false }: AnimeCardProps) {
+export default memo(function AnimeCard({ item, onEdit, updateProgress, isAdmin = false, detailReturnTo, onOpenDetail }: AnimeCardProps) {
   const isCompleted = item.status === 'completed';
   const progressPercent = item.totalEpisodes
     ? (item.progress / item.totalEpisodes) * 100
     : isCompleted ? 100 : 0;
   const rewatchTag = resolveRewatchTag(item.tags);
+  const detailHref = `/anime/${item.id}?returnTo=${encodeURIComponent(detailReturnTo)}`;
 
   return (
-    <div className="group relative bg-[#121214] border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 transition-all duration-300 hover:shadow-2xl hover:shadow-black/40">
+    <div className="group surface-card-muted relative rounded-2xl overflow-hidden hover:border-white/10 transition-all duration-300 hover:shadow-2xl hover:shadow-black/40">
       {/* 封面部分 */}
       <div className="relative aspect-[3/4] overflow-hidden bg-zinc-900">
-        <Link href={`/anime/${item.id}`} className="block h-full">
+        <Link href={detailHref} className="block h-full" onClick={onOpenDetail}>
           {item.coverUrl ? (
             <Image
               src={item.coverUrl}
@@ -85,7 +88,7 @@ export default memo(function AnimeCard({ item, onEdit, updateProgress, isAdmin =
               </span>
             )}
             {item.durationMinutes && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-white/5 bg-black/40 text-zinc-300 backdrop-blur-md">
+                <span className="surface-pill px-2 py-0.5 rounded-full text-[10px] font-medium text-zinc-300 backdrop-blur-md">
                   {item.durationMinutes}m
               </span>
             )}
@@ -107,7 +110,7 @@ export default memo(function AnimeCard({ item, onEdit, updateProgress, isAdmin =
         {isAdmin && (
           <button 
             onClick={() => onEdit(item)}
-            className="absolute top-2 right-2 p-1.5 rounded-full bg-black/40 border border-white/10 text-white/50 hover:text-white hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-all"
+            className="surface-pill absolute top-2 right-2 p-1.5 rounded-full text-white/50 hover:text-white hover:bg-black/40 opacity-0 group-hover:opacity-100 transition-all"
             aria-label="编辑"
           >
             <EllipsisHorizontalIcon className="w-4 h-4" />
@@ -144,7 +147,7 @@ export default memo(function AnimeCard({ item, onEdit, updateProgress, isAdmin =
             <button 
               onClick={() => updateProgress(item.id, item.progress - 1, item.totalEpisodes)}
               disabled={item.progress <= 0}
-              className="flex-1 py-1.5 rounded-lg bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition text-[10px] disabled:opacity-30"
+              className="surface-pill flex-1 py-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition text-[10px] disabled:opacity-30"
               aria-label="减一集"
             >
               -1

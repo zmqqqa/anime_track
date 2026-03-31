@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeftIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { fetchJson } from '@/lib/client-api';
 
 interface WatchHistoryRecord {
   id: number;
@@ -17,10 +18,12 @@ export default function AnimeTimelinePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/history?limit=1000')
-      .then(res => res.json())
+    fetchJson<{ entries?: WatchHistoryRecord[] }>('/api/history?limit=1000', undefined, '加载时间线失败')
       .then(data => {
         setHistory(Array.isArray(data?.entries) ? data.entries : []);
+      })
+      .catch((error) => {
+        console.error(error);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -37,7 +40,7 @@ export default function AnimeTimelinePage() {
   if (loading) return <div className="p-8 text-zinc-500 font-mono">LOADING_TIMELINE...</div>;
 
   return (
-    <main className="p-8 max-w-4xl mx-auto space-y-12">
+    <main className="mx-auto max-w-6xl space-y-12 px-6 py-8 xl:px-10">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
             <Link href="/anime" className="text-zinc-500 hover:text-white flex items-center gap-1 text-sm mb-4 transition-colors">
@@ -51,7 +54,7 @@ export default function AnimeTimelinePage() {
         </div>
       </header>
 
-      <div className="relative border-l-2 border-zinc-800 ml-4 pl-8 space-y-16 py-4">
+      <div className="relative ml-4 max-w-5xl space-y-16 border-l-2 border-zinc-800 py-4 pl-8 xl:ml-6 xl:pl-10">
         {Object.entries(groupedByMonth).map(([month, items]) => (
           <div key={month} className="relative">
             {/* Month Badge */}
@@ -59,9 +62,14 @@ export default function AnimeTimelinePage() {
                 <CalendarIcon className="w-4 h-4 text-primary" />
             </div>
             
-            <h2 className="text-xl font-bold text-white mb-8 sticky top-24 bg-zinc-950/80 backdrop-blur py-1 z-20 w-fit pr-4 rounded">
-                {month}
-            </h2>
+            <div className="mb-8 flex items-center gap-3">
+              <h2 className="surface-pill rounded-xl px-3 py-1.5 text-xl font-bold text-white">
+                  {month}
+              </h2>
+              <span className="text-[11px] font-mono uppercase tracking-[0.22em] text-zinc-500">
+                {items.length} 条记录
+              </span>
+            </div>
 
             <div className="space-y-8">
               {items.map((item) => (
@@ -69,11 +77,11 @@ export default function AnimeTimelinePage() {
                   {/* Dot */}
                   <div className="absolute -left-[38px] top-2 w-3 h-3 rounded-full bg-zinc-800 group-hover:bg-primary transition-colors border-2 border-zinc-950 shadow-[0_0_8px_rgba(0,0,0,1)]"></div>
                   
-                  <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4">
-                    <span className="text-xs font-mono text-zinc-500 shrink-0">
+                  <div className="grid gap-2 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-baseline sm:gap-4">
+                    <span className="shrink-0 text-xs font-mono text-zinc-500">
                         {new Date(item.watchedAt).toLocaleDateString('zh-CN', { day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    <div className="glass-panel p-4 rounded-xl border-white/5 hover:border-primary/30 transition-all flex-1">
+                    <div className="surface-card-muted p-4 rounded-xl hover:border-primary/30 transition-all">
                         <div className="flex justify-between items-center">
                             <Link href={`/anime/${item.animeId}`} className="text-zinc-200 font-medium hover:text-primary transition-colors">
                                 {item.animeTitle}

@@ -15,16 +15,18 @@ interface AnimeGridProps {
   loading: boolean;
   isAdmin?: boolean;
   viewMode?: ViewMode;
+  detailReturnTo: string;
+  onOpenDetail: () => void;
 }
 
-export default function AnimeGrid({ items, onEdit, updateProgress, loading, isAdmin = false, viewMode = 'grid' }: AnimeGridProps) {
+export default function AnimeGrid({ items, onEdit, updateProgress, loading, isAdmin = false, viewMode = 'grid', detailReturnTo, onOpenDetail }: AnimeGridProps) {
   if (loading) {
     return viewMode === 'list' ? <AnimeListSkeleton /> : <AnimeGridSkeleton />;
   }
 
   if (items.length === 0) {
     return (
-      <div className="bg-zinc-900/40 border border-white/5 rounded-3xl">
+      <div className="surface-card rounded-3xl">
         <EmptyState
           icon="📺"
           title="暂无番剧记录"
@@ -41,6 +43,8 @@ export default function AnimeGrid({ items, onEdit, updateProgress, loading, isAd
         onEdit={onEdit}
         updateProgress={updateProgress}
         isAdmin={isAdmin}
+        detailReturnTo={detailReturnTo}
+        onOpenDetail={onOpenDetail}
       />
     );
   }
@@ -54,6 +58,8 @@ export default function AnimeGrid({ items, onEdit, updateProgress, loading, isAd
           onEdit={onEdit} 
           updateProgress={updateProgress}
           isAdmin={isAdmin}
+          detailReturnTo={detailReturnTo}
+          onOpenDetail={onOpenDetail}
         />
       ))}
     </div>

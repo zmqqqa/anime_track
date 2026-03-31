@@ -214,26 +214,26 @@ export default function Dashboard() {
                             </h2>
 
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
-                                <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-3">
+                                <div className="surface-card rounded-[20px] px-4 py-3">
                                     <div className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">馆藏总量</div>
                                     <div className="mt-1 text-2xl font-mono text-zinc-100">{animeStats.count}</div>
                                 </div>
-                                <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-3">
+                                <div className="surface-card rounded-[20px] px-4 py-3">
                                     <div className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">档案完整度</div>
                                     <div className="mt-1 text-2xl font-mono text-emerald-300">{metadataRichness}%</div>
                                 </div>
-                                <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-3">
+                                <div className="surface-card rounded-[20px] px-4 py-3">
                                     <div className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">完结率</div>
                                     <div className="mt-1 text-2xl font-mono text-cyan-300">{animeCompletionRate}%</div>
                                 </div>
-                                <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-3">
+                                <div className="surface-card rounded-[20px] px-4 py-3">
                                     <div className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">本周观看</div>
                                     <div className="mt-1 text-2xl font-mono text-amber-300">{weeklyEpisodes} 集</div>
                                 </div>
                             </div>
 
                             <div className="flex flex-wrap items-center gap-3 pt-1">
-                                <Link href="/anime" className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm text-zinc-100 hover:border-emerald-300/30 hover:bg-emerald-300/10 transition-all">
+                                <Link href="/anime" className="surface-pill rounded-full px-4 py-2 text-sm text-zinc-100 hover:border-emerald-300/30 hover:bg-emerald-300/10 transition-all">
                                     进入片库
                                 </Link>
                                 <Link href="/anime/atlas" className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-300/15 transition-all">
@@ -245,7 +245,7 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        <div className="xl:col-span-4 rounded-[30px] border border-white/12 bg-black/35 p-5 lg:p-6 backdrop-blur-md">
+                        <div className="xl:col-span-4 surface-card rounded-[30px] p-5 lg:p-6 backdrop-blur-md">
                             <div className="text-[10px] text-zinc-500">最近在看</div>
                             {heroAnime ? (
                                 <div className="mt-4 space-y-4">
@@ -254,13 +254,13 @@ export default function Dashboard() {
                                         <p className="text-sm text-zinc-400 mt-1 truncate">{heroAnime.originalTitle ?? '尚未补充原名'}</p>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                                        <div className="surface-card-muted rounded-2xl p-3">
                                             <div className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">评分</div>
                                             <div className="mt-1 text-xl text-amber-200 font-mono">
                                                 {typeof heroAnime.score === 'number' ? heroAnime.score.toFixed(1) : '未补充'}
                                             </div>
                                         </div>
-                                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                                        <div className="surface-card-muted rounded-2xl p-3">
                                             <div className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">首播</div>
                                             <div className="mt-1 text-xl text-sky-200 font-mono">{formatPremiere(heroAnime.premiereDate)}</div>
                                         </div>
@@ -319,15 +319,13 @@ export default function Dashboard() {
                             </>
                         );
 
-                        const className = "glass-panel px-5 py-5 rounded-[28px] transition-all duration-500 hover:-translate-y-1 group relative overflow-hidden flex flex-col gap-4 border-white/10";
-                        const style = { background: 'rgba(14, 21, 19, 0.88)' };
+                        const className = "glass-panel surface-card-muted px-5 py-5 rounded-[28px] transition-all duration-500 hover:-translate-y-1 group relative overflow-hidden flex flex-col gap-4";
 
                         return stat.href ? (
                             <Link
                                 key={i}
                                 href={stat.href}
                                 className={className}
-                                style={style}
                             >
                                 {content}
                             </Link>
@@ -335,7 +333,6 @@ export default function Dashboard() {
                             <div
                                 key={i}
                                 className={className}
-                                style={style}
                             >
                                 {content}
                             </div>
@@ -388,7 +385,7 @@ export default function Dashboard() {
                                 <Link
                                     key={`recent-${record.id}`}
                                     href={`/anime/${record.animeId}`}
-                                    className="group rounded-[22px] border border-transparent bg-white/[0.03] overflow-hidden hover:border-sky-300/20 transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01]"
+                                    className="group surface-card-muted rounded-[22px] overflow-hidden hover:border-sky-300/20 transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01]"
                                 >
                                     <div
                                         className="aspect-video w-full bg-zinc-900/70 bg-cover bg-center"
@@ -409,7 +406,7 @@ export default function Dashboard() {
                             {Array.from({ length: Math.max(0, 9 - recentWatching.length) }).map((_, index) => (
                                 <div
                                     key={`recent-empty-${index}`}
-                                    className="rounded-[22px] border border-transparent bg-white/[0.02] overflow-hidden"
+                                    className="surface-card-muted rounded-[22px] overflow-hidden"
                                 >
                                     <div className="aspect-video bg-gradient-to-br from-white/[0.04] to-transparent" />
                                     <div className="p-4">
@@ -459,7 +456,7 @@ export default function Dashboard() {
                             观看统计与偏好
                         </h2>
 
-                        <div className="rounded-[24px] bg-white/[0.02] p-5">
+                        <div className="surface-card-muted rounded-[24px] p-5">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">标签分布</h3>
                                 <span className="text-[10px] text-zinc-600">条形图</span>
@@ -492,7 +489,7 @@ export default function Dashboard() {
                         </h2>
                         <div className="space-y-3">
                             {recentPremiered.map((anime) => (
-                                <Link key={anime.id} href={`/anime/${anime.id}`} className="group flex items-center justify-between gap-3 rounded-[20px] border border-white/5 bg-white/[0.03] px-4 py-3 hover:border-sky-300/20 transition-all">
+                                <Link key={anime.id} href={`/anime/${anime.id}`} className="group surface-card-muted flex items-center justify-between gap-3 rounded-[20px] px-4 py-3 hover:border-sky-300/20 transition-all">
                                     <div className="min-w-0">
                                         <div className="text-sm text-zinc-200 truncate">{anime.title}</div>
                                         <div className="text-xs text-zinc-500 truncate">{formatPremiere(anime.premiereDate)} · {anime.totalEpisodes ? `${anime.totalEpisodes} 集` : '集数未补充'}</div>

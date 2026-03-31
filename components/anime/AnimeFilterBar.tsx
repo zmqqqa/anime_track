@@ -64,7 +64,7 @@ export default function AnimeFilterBar({
     <>
             <div className="flex flex-col gap-4 mb-2 animate-in fade-in slide-in-from-top-2">
                 <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between">
-                    <div className="flex p-1 bg-zinc-900/50 backdrop-blur-md rounded-xl border border-white/5 shadow-inner overflow-x-auto max-w-full no-scrollbar">
+                    <div className="surface-card-muted flex p-1 rounded-xl shadow-inner overflow-x-auto max-w-full no-scrollbar">
              {(['all', 'watching', 'completed', 'plan_to_watch', 'dropped'] as const).map((s) => {
                  const isActive = filterStatus === s;
                  const activeStyles = "bg-zinc-800 text-white shadow-md";
@@ -91,7 +91,7 @@ export default function AnimeFilterBar({
                                 onChange={(event) => setCastQuery(event.target.value)}
                                 placeholder="按声优筛选，支持中文别名"
                                 list="anime-cast-suggestions"
-                                className="w-full bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl pl-9 pr-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
+                                className="surface-input w-full rounded-xl pl-9 pr-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
                             />
                             <datalist id="anime-cast-suggestions">
                                 {voiceActorSuggestions.map((name) => (
@@ -104,7 +104,7 @@ export default function AnimeFilterBar({
               <button
                   onClick={() => setIsSortOpen(!isSortOpen)}
                   onBlur={() => setTimeout(() => setIsSortOpen(false), 200)}
-                  className="flex items-center gap-2 bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200 hover:border-white/10 transition-all cursor-pointer shadow-sm w-[140px] justify-between"
+                    className="surface-pill flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200 hover:border-white/10 transition-all cursor-pointer shadow-sm w-[140px] justify-between"
               >
                   <div className="flex items-center gap-2">
                       <ArrowsUpDownIcon className="w-4 h-4" />
@@ -113,7 +113,7 @@ export default function AnimeFilterBar({
                   <ChevronDownIcon className={`w-3 h-3 transition-transform duration-300 ${isSortOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              <div className={`absolute right-0 top-full mt-2 w-40 bg-zinc-900 border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 transition-all duration-200 origin-top-right ${isSortOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2 pointer-events-none'}`}>
+              <div className={`surface-card absolute right-0 top-full mt-2 w-40 rounded-xl shadow-xl overflow-hidden z-50 transition-all duration-200 origin-top-right ${isSortOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2 pointer-events-none'}`}>
                  <div className="p-1">
                      {sortOptions.map((opt) => (
                          <button
@@ -131,7 +131,7 @@ export default function AnimeFilterBar({
 
             <button 
               onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              className="w-10 h-10 flex items-center justify-center bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl text-zinc-400 hover:text-white hover:border-white/10 transition-all shadow-sm group"
+              className="surface-pill w-10 h-10 flex items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:border-white/10 transition-all shadow-sm group"
               title={sortOrder === 'asc' ? '升序 (A-Z)' : '降序 (Z-A)'}
             >
               <div className={`transition-transform duration-300 ${sortOrder === 'desc' ? 'rotate-180' : ''}`}>

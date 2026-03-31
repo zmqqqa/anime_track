@@ -19,22 +19,25 @@ interface AnimeListViewProps {
   onEdit: (item: AnimeCardItem) => void;
   updateProgress: (id: number, current: number, total?: number | null) => Promise<void>;
   isAdmin?: boolean;
+  detailReturnTo: string;
+  onOpenDetail: () => void;
 }
 
-export default memo(function AnimeListView({ items, onEdit, updateProgress, isAdmin = false }: AnimeListViewProps) {
+export default memo(function AnimeListView({ items, onEdit, updateProgress, isAdmin = false, detailReturnTo, onOpenDetail }: AnimeListViewProps) {
   return (
     <div className="space-y-2.5">
       {items.map((item) => {
         const isCompleted = item.status === 'completed';
         const progressPercent = item.totalEpisodes ? (item.progress / item.totalEpisodes) * 100 : 0;
+        const detailHref = `/anime/${item.id}?returnTo=${encodeURIComponent(detailReturnTo)}`;
 
         return (
           <div
             key={item.id}
-            className="group flex items-center gap-4 p-3 bg-[#121214] border border-white/5 rounded-2xl hover:border-white/10 transition-all duration-200"
+            className="group surface-card-muted flex items-center gap-4 p-3 rounded-2xl hover:border-white/10 transition-all duration-200"
           >
             {/* 封面缩略图 */}
-            <Link href={`/anime/${item.id}`} className="flex-shrink-0 w-14 h-[74px] rounded-xl overflow-hidden bg-zinc-900 relative">
+            <Link href={detailHref} onClick={onOpenDetail} className="flex-shrink-0 w-14 h-[74px] rounded-xl overflow-hidden bg-zinc-900 relative">
               {item.coverUrl ? (
                 <Image
                   src={item.coverUrl}
@@ -57,7 +60,7 @@ export default memo(function AnimeListView({ items, onEdit, updateProgress, isAd
 
             {/* 标题与标签 */}
             <div className="flex-1 min-w-0 py-0.5">
-              <Link href={`/anime/${item.id}`} className="block">
+              <Link href={detailHref} onClick={onOpenDetail} className="block">
                 <h3 className="text-sm font-medium text-zinc-100 truncate group-hover:text-emerald-300 transition-colors">
                   {item.title}
                 </h3>
@@ -96,7 +99,7 @@ export default memo(function AnimeListView({ items, onEdit, updateProgress, isAd
                 <button
                   onClick={() => updateProgress(item.id, item.progress - 1, item.totalEpisodes)}
                   disabled={item.progress <= 0}
-                  className="p-1.5 rounded-lg border border-white/5 bg-white/[0.03] text-zinc-400 hover:text-white hover:bg-zinc-800 transition text-[10px] disabled:opacity-30"
+                  className="surface-pill p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition text-[10px] disabled:opacity-30"
                   aria-label="减一集"
                 >
                   -1
@@ -116,7 +119,7 @@ export default memo(function AnimeListView({ items, onEdit, updateProgress, isAd
                 )}
                 <button
                   onClick={() => onEdit(item)}
-                  className="p-1.5 rounded-lg border border-white/5 bg-white/[0.03] text-zinc-400 hover:text-white hover:bg-zinc-800 transition opacity-0 group-hover:opacity-100"
+                  className="surface-pill p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition opacity-0 group-hover:opacity-100"
                   aria-label="编辑"
                 >
                   <EllipsisHorizontalIcon className="w-4 h-4" />

@@ -2,10 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeftIcon, PencilSquareIcon, TrashIcon, CalendarIcon, CheckCircleIcon, ClockIcon, PlayCircleIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeftIcon, PencilSquareIcon, TrashIcon, CalendarIcon, CheckCircleIcon, ClockIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import { normalizeStringArray } from '@/lib/anime-cast';
+import { fetchJson } from '@/lib/client-api';
+import { readSessionCache, writeSessionCache } from '@/lib/hooks-shared';
 import type { AnimeStatus, AnimeDetailItem } from '@/lib/anime-shared';
 
 const statusMap: Record<AnimeStatus, string> = {
@@ -42,8 +45,124 @@ function toTagInputValue(value: AnimeDetailItem['tags'] | string | undefined) {
   return value || '';
 }
 
+type AnimeMutationResponse = {
+  ok?: boolean;
+  entry: AnimeDetailItem;
+  appliedFields?: string[];
+};
+
+const OMIT_FIELD = Symbol('omit-field');
+const editableKeys = [
+  'title',
+  'originalTitle',
+  'status',
+  'progress',
+  'score',
+  'totalEpisodes',
+  'notes',
+  'coverUrl',
+  'durationMinutes',
+  'tags',
+  'summary',
+] as const;
+const numericKeys = new Set(['progress', 'score', 'totalEpisodes', 'durationMinutes']);
+const ANIME_LIST_CACHE_KEY = 'anime-list-items';
+
+type EditableField = (typeof editableKeys)[number];
+type AnimeDetailPatchPayload = Partial<Pick<AnimeDetailItem, EditableField>> & { tags?: string[] };
+
+function resolveReturnTo(rawValue: string | null) {
+  if (!rawValue) {
+    return '/anime';
+  }
+
+  return rawValue.startsWith('/anime') ? rawValue : '/anime';
+}
+
+function updateAnimeListCache(nextEntry: AnimeDetailItem) {
+  const cached = readSessionCache<AnimeDetailItem[]>(ANIME_LIST_CACHE_KEY);
+  if (!cached) {
+    return;
+  }
+
+  const nextItems = cached.map((item) => (item.id === nextEntry.id ? { ...item, ...nextEntry } : item));
+  writeSessionCache(ANIME_LIST_CACHE_KEY, nextItems);
+}
+
+function removeAnimeFromListCache(animeId: number) {
+  const cached = readSessionCache<AnimeDetailItem[]>(ANIME_LIST_CACHE_KEY);
+  if (!cached) {
+    return;
+  }
+
+  writeSessionCache(ANIME_LIST_CACHE_KEY, cached.filter((item) => item.id !== animeId));
+}
+
+function areStringArraysEqual(left: unknown, right: unknown) {
+  const leftValues = normalizeStringArray(left) || [];
+  const rightValues = normalizeStringArray(right) || [];
+
+  if (leftValues.length !== rightValues.length) {
+    return false;
+  }
+
+  return leftValues.every((value, index) => value === rightValues[index]);
+}
+
+function normalizeEditableFieldValue(key: EditableField, value: unknown): unknown {
+  if (key === 'tags') {
+    return normalizeStringArray(value);
+  }
+
+  if (numericKeys.has(key)) {
+    if (value === '' || value === null || value === undefined) {
+      return OMIT_FIELD;
+    }
+
+    return Number(value);
+  }
+
+  return value;
+}
+
+function isFieldValueUnchanged(key: EditableField, nextValue: unknown, currentValue: unknown) {
+  if (key === 'tags') {
+    return areStringArraysEqual(nextValue, currentValue);
+  }
+
+  if (numericKeys.has(key)) {
+    if (currentValue === undefined || currentValue === null || currentValue === '') {
+      return false;
+    }
+
+    return Number(currentValue) === nextValue;
+  }
+
+  return nextValue === currentValue;
+}
+
+function buildChangedPayload(formData: Partial<AnimeDetailItem>, item: AnimeDetailItem): AnimeDetailPatchPayload {
+  const payload: AnimeDetailPatchPayload = {};
+
+  for (const key of editableKeys) {
+    const normalizedValue = normalizeEditableFieldValue(key, formData[key]);
+    if (normalizedValue === OMIT_FIELD) {
+      continue;
+    }
+
+    if (isFieldValueUnchanged(key, normalizedValue, item[key])) {
+      continue;
+    }
+
+    (payload as Record<string, unknown>)[key] = normalizedValue;
+  }
+
+  return payload;
+}
+
 export default function AnimeDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [item, setItem] = useState<AnimeDetailItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -51,72 +170,55 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
   const [formData, setFormData] = useState<Partial<AnimeDetailItem>>({});
   const [isAiEnriching, setIsAiEnriching] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const returnTo = useMemo(() => resolveReturnTo(searchParams.get('returnTo')), [searchParams]);
+
+  const handleReturnToList = () => {
+    router.push(returnTo, { scroll: false });
+  };
 
   useEffect(() => {
-    fetch(`/api/anime/${params.id}`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error('Not found');
-        }
-
-        return res.json();
-      })
+    fetchJson<AnimeDetailItem>(`/api/anime/${params.id}`, undefined, 'Not found')
       .then((data) => {
         setItem(data);
         setFormData(data);
       })
       .catch((error) => {
         console.error(error);
-        router.push('/anime');
+        router.push(returnTo);
       })
       .finally(() => setLoading(false));
-  }, [params.id, router]);
+  }, [params.id, returnTo, router]);
 
   const handleChange = (key: keyof AnimeDetailItem, value: unknown) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
   const saveChanges = async () => {
+    if (!item) {
+      return;
+    }
+
+    const payload = buildChangedPayload(formData, item);
+    if (Object.keys(payload).length === 0) {
+      toast('没有需要保存的变更', { icon: 'ℹ️' });
+      return;
+    }
+
     setSaving(true);
     try {
-      const payload: Partial<AnimeDetailItem> & { tags?: string[] | string } = { ...formData };
-      const payloadRecord = payload as Record<string, unknown>;
-      if (typeof payload.tags === 'string') {
-        payload.tags = payload.tags.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean);
-      }
-
-      const numericKeys = ['progress', 'score', 'totalEpisodes', 'durationMinutes'] as const;
-      for (const key of numericKeys) {
-        const raw = payloadRecord[key];
-        if (raw === '' || raw === null) {
-          delete payloadRecord[key];
-          continue;
-        }
-
-        if (raw !== undefined) {
-          payloadRecord[key] = Number(raw);
-        }
-      }
-
-      const res = await fetch(`/api/anime/${params.id}`, {
+      const response = await fetchJson<AnimeMutationResponse>(`/api/anime/${params.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        toast.error('保存失败');
-        return;
-      }
-
-      const response = await res.json();
-      const updated = response.entry || response;
+      }, '保存失败');
+      const updated = response.entry;
       setItem(updated);
       setFormData(updated);
+      updateAnimeListCache(updated);
       setIsEditing(false);
       toast.success('保存成功');
-    } catch {
-      toast.error('保存出错');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存出错');
     } finally {
       setSaving(false);
     }
@@ -125,17 +227,12 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
   const enrichAnimeInfo = async () => {
     setIsAiEnriching(true);
     try {
-      const res = await fetch(`/api/anime/${params.id}/enrich`, { method: 'POST' });
-      const response = await res.json().catch(() => ({}));
+      const response = await fetchJson<AnimeMutationResponse>(`/api/anime/${params.id}/enrich`, { method: 'POST' }, 'AI补充失败');
 
-      if (!res.ok) {
-        toast.error(response.error || 'AI补充失败');
-        return;
-      }
-
-      const updated = response.entry || item;
+      const updated = response.entry;
       setItem(updated);
       setFormData(updated);
+      updateAnimeListCache(updated);
 
       const appliedCount = Array.isArray(response.appliedFields) ? response.appliedFields.length : 0;
       if (appliedCount === 0) {
@@ -145,7 +242,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
       }
     } catch (error) {
       console.error(error);
-      toast.error('AI补充失败');
+      toast.error(error instanceof Error ? error.message : 'AI补充失败');
     } finally {
       setIsAiEnriching(false);
     }
@@ -158,11 +255,12 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
   const confirmDelete = async () => {
     setShowDeleteConfirm(false);
     try {
-      await fetch(`/api/anime/${params.id}`, { method: 'DELETE' });
+      await fetchJson<{ ok: true }>(`/api/anime/${params.id}`, { method: 'DELETE' }, '删除失败');
+      removeAnimeFromListCache(Number(params.id));
       toast.success('已删除');
-      router.push('/anime');
-    } catch {
-      toast.error('删除失败');
+      router.push(returnTo, { scroll: false });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '删除失败');
     }
   };
 
@@ -204,14 +302,14 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_25%),linear-gradient(180deg,rgba(7,17,16,0.82),rgba(4,10,10,0.98))]" />
 
         <div className="relative p-5 md:p-8 xl:p-10 2xl:p-12">
-          <button onClick={() => router.back()} className="flex items-center gap-2 text-sm text-zinc-500 transition-colors hover:text-white">
+          <button onClick={handleReturnToList} className="flex items-center gap-2 text-sm text-zinc-500 transition-colors hover:text-white">
             <ArrowLeftIcon className="h-4 w-4" />
             <span>返回列表</span>
           </button>
 
           <div className="mt-6 grid gap-8 xl:grid-cols-[360px_minmax(0,1fr)] 2xl:grid-cols-[390px_minmax(0,1fr)] 2xl:gap-10">
             <aside className="space-y-5 xl:sticky xl:top-8 xl:self-start">
-              <div className="overflow-hidden rounded-[28px] border border-white/10 bg-zinc-950 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+              <div className="glass-panel-strong overflow-hidden rounded-[28px] shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
                 <div className="aspect-[2/3] w-full bg-zinc-900">
                   {coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -235,7 +333,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                 </div>
               </div>
 
-              <div className="rounded-[24px] border border-white/10 bg-black/20 p-5 2xl:p-6 backdrop-blur-xl">
+              <div className="surface-card rounded-[24px] p-5 2xl:p-6 backdrop-blur-xl">
                 {isEditing ? (
                   <div className="space-y-4">
                     <div>
@@ -243,7 +341,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                       <select
                         value={formData.status || item.status}
                         onChange={(event) => handleChange('status', event.target.value as AnimeStatus)}
-                        className="w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
+                        className="surface-input w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
                       >
                         {Object.keys(statusMap).map((status) => (
                           <option key={status} value={status}>{statusMap[status as AnimeStatus]}</option>
@@ -258,7 +356,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                           type="number"
                           value={formData.score ?? ''}
                           onChange={(event) => handleChange('score', event.target.value)}
-                          className="w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
+                          className="surface-input w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
                         />
                       </div>
                       <div>
@@ -267,7 +365,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                           type="number"
                           value={formData.durationMinutes ?? ''}
                           onChange={(event) => handleChange('durationMinutes', event.target.value)}
-                          className="w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
+                          className="surface-input w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
                         />
                       </div>
                     </div>
@@ -277,21 +375,21 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                       <input
                         value={formData.coverUrl || ''}
                         onChange={(event) => handleChange('coverUrl', event.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
+                        className="surface-input w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
                       />
                     </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                    <div className="surface-card-muted rounded-2xl p-3">
                       <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">评分</div>
                       <div className="mt-2 text-lg font-semibold text-amber-300">{displayScore ? `★ ${displayScore}` : '-'}</div>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                    <div className="surface-card-muted rounded-2xl p-3">
                       <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">集数</div>
                       <div className="mt-2 text-lg font-semibold text-zinc-100">{displayTotalEpisodes || '?'}</div>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                    <div className="surface-card-muted rounded-2xl p-3">
                       <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">时长</div>
                       <div className="mt-2 text-lg font-semibold text-zinc-100">{displayDuration ? `${displayDuration}m` : '-'}</div>
                     </div>
@@ -301,7 +399,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
             </aside>
 
             <section className="space-y-6">
-              <div className="rounded-[28px] border border-white/10 bg-black/20 p-6 md:p-8 xl:p-9 2xl:p-10 backdrop-blur-xl">
+              <div className="surface-card rounded-[28px] p-6 md:p-8 xl:p-9 2xl:p-10 backdrop-blur-xl">
                 <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0 flex-1 space-y-3">
                     {isEditing ? (
@@ -330,12 +428,12 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                         value={toTagInputValue(formData.tags)}
                         onChange={(event) => handleChange('tags', event.target.value)}
                         placeholder="标签 (逗号分隔)"
-                        className="w-full rounded-2xl border border-white/10 bg-zinc-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400/40"
+                        className="surface-input w-full rounded-2xl px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400/40"
                       />
                     ) : (
                       <div className="flex flex-wrap gap-2">
                         {displayTags.map((tag) => (
-                          <span key={tag} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-zinc-200">
+                          <span key={tag} className="surface-pill rounded-full px-3 py-1 text-xs text-zinc-200">
                             #{tag}
                           </span>
                         ))}
@@ -349,7 +447,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                         <button
                           onClick={enrichAnimeInfo}
                           disabled={isAiEnriching}
-                          className="rounded-xl border border-white/10 bg-zinc-900/80 px-4 py-2.5 text-sm text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
+                          className="surface-pill rounded-xl px-4 py-2.5 text-sm text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
                         >
                           {isAiEnriching ? 'AI补充中...' : 'AI补充'}
                         </button>
@@ -369,13 +467,13 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                         <button
                           onClick={enrichAnimeInfo}
                           disabled={isAiEnriching}
-                          className="rounded-xl border border-white/10 bg-zinc-900/80 px-4 py-2.5 text-sm text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
+                          className="surface-pill rounded-xl px-4 py-2.5 text-sm text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
                         >
                           {isAiEnriching ? 'AI补充中...' : 'AI补充'}
                         </button>
                         <button
                           onClick={() => setIsEditing(true)}
-                          className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5 text-zinc-300 transition hover:bg-white/[0.08] hover:text-white"
+                          className="surface-pill rounded-xl p-2.5 text-zinc-300 transition hover:bg-white/[0.08] hover:text-white"
                         >
                           <PencilSquareIcon className="h-5 w-5" />
                         </button>
@@ -385,17 +483,17 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                 </div>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="surface-card-muted rounded-2xl p-4">
                     <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">观看状态</div>
                     <div className="mt-2 text-sm font-semibold text-zinc-100">{statusMap[displayStatus]}</div>
                     <div className="mt-1 text-xs text-zinc-500">{item.isFinished ? '片源已完结' : '仍可能继续更新'}</div>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="surface-card-muted rounded-2xl p-4">
                     <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">当前进度</div>
                     <div className="mt-2 text-sm font-semibold text-zinc-100">{displayProgress} / {displayTotalEpisodes || '?'} EP</div>
                     <div className="mt-1 text-xs text-zinc-500">完成度 {Math.round(progressPercent)}%</div>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="surface-card-muted rounded-2xl p-4">
                     <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">最近编辑</div>
                     <div className="mt-2 text-sm font-semibold text-zinc-100">{formatTimestampLabel(item.updatedAt)}</div>
                     <div className="mt-1 text-xs text-zinc-500">创建于 {formatDateLabel(item.createdAt?.slice(0, 10))}</div>
@@ -405,7 +503,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
 
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1.28fr)_minmax(320px,0.92fr)] 2xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,0.95fr)] 2xl:gap-8">
                 <div className="space-y-6">
-                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-6 backdrop-blur-xl">
+                  <div className="surface-card rounded-[24px] p-6 backdrop-blur-xl">
                     <div className="flex items-center justify-between gap-4">
                       <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
                         <CheckCircleIcon className="h-4 w-4" />
@@ -418,7 +516,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                               type="number"
                               value={formData.progress ?? item.progress}
                               onChange={(event) => handleChange('progress', event.target.value)}
-                              className="w-20 rounded-xl border border-white/10 bg-zinc-950/80 px-2 py-1.5 text-center text-sm text-white outline-none transition focus:border-emerald-400/40"
+                              className="surface-input w-20 rounded-xl px-2 py-1.5 text-center text-sm text-white outline-none transition focus:border-emerald-400/40"
                             />
                             <span>/</span>
                             <input
@@ -426,7 +524,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                               value={formData.totalEpisodes ?? item.totalEpisodes ?? ''}
                               onChange={(event) => handleChange('totalEpisodes', event.target.value)}
                               placeholder="?"
-                              className="w-20 rounded-xl border border-white/10 bg-zinc-950/80 px-2 py-1.5 text-center text-sm text-white outline-none transition focus:border-emerald-400/40"
+                              className="surface-input w-20 rounded-xl px-2 py-1.5 text-center text-sm text-white outline-none transition focus:border-emerald-400/40"
                             />
                           </div>
                         ) : (
@@ -448,15 +546,15 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                     </div>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="surface-card-muted rounded-2xl p-4">
                         <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">首播</div>
                         <div className="mt-2 text-sm text-zinc-100">{formatDateLabel(item.premiereDate)}</div>
                       </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="surface-card-muted rounded-2xl p-4">
                         <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">单集时长</div>
                         <div className="mt-2 text-sm text-zinc-100">{displayDuration ? `${displayDuration} min` : '未知'}</div>
                       </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="surface-card-muted rounded-2xl p-4">
                         <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">片源状态</div>
                         <div className={`mt-2 text-sm font-medium ${item.isFinished ? 'text-emerald-300' : 'text-cyan-300'}`}>
                           {item.isFinished ? '已完结' : '连载中'}
@@ -465,7 +563,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                     </div>
                   </div>
 
-                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-6 backdrop-blur-xl">
+                  <div className="surface-card rounded-[24px] p-6 backdrop-blur-xl">
                     <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
                       <SparklesIcon className="h-4 w-4" />
                       简介 / 剧情
@@ -475,7 +573,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                         rows={8}
                         value={formData.summary || ''}
                         onChange={(event) => handleChange('summary', event.target.value)}
-                        className="mt-4 min-h-[220px] w-full rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-sm leading-7 text-zinc-200 outline-none transition focus:border-emerald-400/40"
+                        className="surface-input mt-4 min-h-[220px] w-full rounded-2xl p-4 text-sm leading-7 text-zinc-200 outline-none transition focus:border-emerald-400/40"
                       />
                     ) : (
                       <p className="mt-4 whitespace-pre-wrap text-sm leading-8 text-zinc-300">
@@ -484,7 +582,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                     )}
                   </div>
 
-                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-6 backdrop-blur-xl">
+                  <div className="surface-card rounded-[24px] p-6 backdrop-blur-xl">
                     <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
                       <ClockIcon className="h-4 w-4" />
                       个人备注
@@ -494,7 +592,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                         rows={4}
                         value={formData.notes || ''}
                         onChange={(event) => handleChange('notes', event.target.value)}
-                        className="mt-4 w-full rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-sm leading-7 text-zinc-200 outline-none transition focus:border-emerald-400/40"
+                        className="surface-input mt-4 w-full rounded-2xl p-4 text-sm leading-7 text-zinc-200 outline-none transition focus:border-emerald-400/40"
                       />
                     ) : (
                       <p className="mt-4 text-sm italic leading-7 text-zinc-400">
@@ -505,85 +603,56 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                 </div>
 
                 <div className="space-y-6">
-                  {!isEditing && (
-                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-6 backdrop-blur-xl">
-                      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
-                        <PlayCircleIcon className="h-4 w-4" />
-                        观看入口
-                      </div>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <a
-                          href={`https://bgm.girigirilove.com/search/-------------/?wd=${encodeURIComponent(item.title)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 transition hover:-translate-y-0.5 hover:border-rose-300/40 hover:bg-rose-400/15"
-                        >
-                          <div className="text-sm font-semibold text-rose-100">GiriGiri</div>
-                          <div className="mt-1 text-xs text-rose-200/70">首选源，直接检索当前标题</div>
-                        </a>
-                        <a
-                          href={`https://www.agedm.io/search?query=${encodeURIComponent(item.title)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-2xl border border-violet-400/20 bg-violet-400/10 p-4 transition hover:-translate-y-0.5 hover:border-violet-300/40 hover:bg-violet-400/15"
-                        >
-                          <div className="text-sm font-semibold text-violet-100">AGE 动漫</div>
-                          <div className="mt-1 text-xs text-violet-200/70">备用源，适合补找片源</div>
-                        </a>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-6 backdrop-blur-xl">
+                  <div className="surface-card rounded-[24px] p-6 backdrop-blur-xl">
                     <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
                       <CalendarIcon className="h-4 w-4" />
                       时间轴
                     </div>
 
                     <div className="mt-4 space-y-3 text-sm">
-                      <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                      <div className="surface-card-muted flex items-center justify-between gap-4 rounded-2xl px-4 py-3">
                         <span className="text-zinc-500">开始观看</span>
                         {isEditing ? (
                           <input
                             type="date"
                             value={formData.startDate || ''}
                             onChange={(event) => handleChange('startDate', event.target.value)}
-                            className="rounded-xl border border-white/10 bg-zinc-950/80 px-2 py-1.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
+                            className="surface-input rounded-xl px-2 py-1.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
                           />
                         ) : (
                           <span className="text-zinc-100">{formatDateLabel(item.startDate)}</span>
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                      <div className="surface-card-muted flex items-center justify-between gap-4 rounded-2xl px-4 py-3">
                         <span className="text-zinc-500">看完日期</span>
                         {isEditing ? (
                           <input
                             type="date"
                             value={formData.endDate || ''}
                             onChange={(event) => handleChange('endDate', event.target.value)}
-                            className="rounded-xl border border-white/10 bg-zinc-950/80 px-2 py-1.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
+                            className="surface-input rounded-xl px-2 py-1.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
                           />
                         ) : (
                           <span className="text-zinc-100">{formatDateLabel(item.endDate)}</span>
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                      <div className="surface-card-muted flex items-center justify-between gap-4 rounded-2xl px-4 py-3">
                         <span className="text-zinc-500">首播日期</span>
                         {isEditing ? (
                           <input
                             type="date"
                             value={formData.premiereDate || ''}
                             onChange={(event) => handleChange('premiereDate', event.target.value)}
-                            className="rounded-xl border border-white/10 bg-zinc-950/80 px-2 py-1.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
+                            className="surface-input rounded-xl px-2 py-1.5 text-sm text-white outline-none transition focus:border-emerald-400/40"
                           />
                         ) : (
                           <span className="text-zinc-100">{formatDateLabel(item.premiereDate)}</span>
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                      <div className="surface-card-muted flex items-center justify-between gap-4 rounded-2xl px-4 py-3">
                         <span className="text-zinc-500">放送状态</span>
                         {isEditing ? (
                           <label className="flex items-center gap-2 text-sm text-zinc-200">
@@ -602,7 +671,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                     </div>
                   </div>
 
-                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-6 backdrop-blur-xl">
+                  <div className="surface-card rounded-[24px] p-6 backdrop-blur-xl">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
                         <SparklesIcon className="h-4 w-4" />
@@ -621,7 +690,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                         onChange={(event) => {
                           handleChange('cast', event.target.value.split(/[,，]/).map((name) => name.trim()).filter(Boolean));
                         }}
-                        className="mt-4 w-full rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-sm leading-7 text-zinc-200 outline-none transition focus:border-emerald-400/40"
+                        className="surface-input mt-4 w-full rounded-2xl p-4 text-sm leading-7 text-zinc-200 outline-none transition focus:border-emerald-400/40"
                       />
                     ) : item.cast && item.cast.length > 0 ? (
                       <div className="mt-4 flex flex-wrap gap-2">
@@ -629,7 +698,7 @@ export default function AnimeDetailPage({ params }: { params: { id: string } }) 
                           <Link
                             key={`${cv}-${index}`}
                             href={`/anime?cast=${encodeURIComponent(cv)}`}
-                            className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-200 transition hover:border-cyan-300/30 hover:bg-cyan-300/10 hover:text-cyan-100"
+                            className="surface-pill rounded-full px-3 py-1.5 text-xs text-zinc-200 transition hover:border-cyan-300/30 hover:bg-cyan-300/10 hover:text-cyan-100"
                           >
                             {cv}
                           </Link>

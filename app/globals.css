@@ -139,10 +139,10 @@ body::before {
   background:
     linear-gradient(180deg, rgba(10, 18, 16, 0.94), rgba(12, 18, 18, 0.78));
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(102, 132, 121, 0.16);
   box-shadow:
     0 24px 80px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .glass-panel:hover {
@@ -158,10 +158,36 @@ body::before {
   background:
     linear-gradient(180deg, rgba(9, 17, 15, 0.98), rgba(10, 17, 17, 0.88));
   backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(108, 141, 128, 0.18);
   box-shadow:
     0 30px 100px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.surface-card {
+  background: linear-gradient(180deg, rgba(18, 29, 26, 0.74), rgba(10, 17, 15, 0.52));
+  border: 1px solid rgba(112, 145, 132, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 18px 36px rgba(0, 0, 0, 0.14);
+}
+
+.surface-card-muted {
+  background: linear-gradient(180deg, rgba(15, 24, 22, 0.62), rgba(9, 15, 14, 0.42));
+  border: 1px solid rgba(104, 134, 123, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
+}
+
+.surface-pill {
+  background: rgba(14, 22, 20, 0.58);
+  border: 1px solid rgba(112, 142, 130, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.surface-input {
+  background: rgba(8, 14, 13, 0.82);
+  border: 1px solid rgba(110, 141, 129, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
 }
 
 .surface-highlight {

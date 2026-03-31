@@ -84,7 +84,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
         </div>
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 hover:bg-white/5 rounded-xl transition-all duration-200 border border-white/5 bg-white/[0.03]"
+          className="surface-pill p-2 hover:bg-white/5 rounded-xl transition-all duration-200"
           aria-label="菜单"
         >
           <svg className="w-6 h-6 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,7 +129,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
               )}
               <button
                 onClick={() => setCollapsed(!collapsed)}
-                className="p-2 hover:bg-white/5 rounded-xl transition-all duration-200 hover:text-primary border border-white/5 bg-white/[0.03]"
+                className="surface-pill p-2 hover:bg-white/5 rounded-xl transition-all duration-200 hover:text-primary"
                 aria-label={collapsed ? '展开' : '收起'}
               >
                 <svg 
@@ -149,7 +149,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
             </div>
             {!collapsed && isGuest && (
               <div className="mt-3">
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.24em] text-zinc-400">
+                <span className="surface-pill rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.24em] text-zinc-400">
                   访客模式
                 </span>
               </div>
@@ -188,7 +188,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
                     )}
                     {isActive && <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 via-white/[0.02] to-transparent opacity-80" />}
 
-                    <div className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-2xl border text-sm font-semibold ${isActive ? 'border-emerald-300/25 bg-emerald-300/12 text-emerald-100' : 'border-white/5 bg-white/[0.03] text-zinc-400 group-hover:text-zinc-200'}`}>
+                    <div className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-2xl border text-sm font-semibold ${isActive ? 'border-emerald-300/25 bg-emerald-300/12 text-emerald-100' : 'surface-pill text-zinc-400 group-hover:text-zinc-200'}`}>
                       {item.label.charAt(0)}
                     </div>
 
@@ -241,7 +241,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
                 <button 
                   onClick={handleSignOut}
                   disabled={isSigningOut}
-                  className="text-xs flex items-center justify-between gap-2 rounded-2xl border border-white/5 bg-white/[0.03] px-3 py-2.5 text-zinc-300 hover:text-red-300 hover:border-red-400/20 hover:bg-red-400/5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                  className="surface-pill text-xs flex items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-zinc-300 hover:text-red-300 hover:border-red-400/20 hover:bg-red-400/5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <span className="flex items-center gap-2">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -268,7 +268,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
                 <button 
                   onClick={handleSignOut}
                   disabled={isSigningOut}
-                  className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl border border-white/5 bg-white/[0.03] text-zinc-300 hover:text-red-300 hover:border-red-400/20 hover:bg-red-400/5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                  className="surface-pill mx-auto flex h-10 w-10 items-center justify-center rounded-2xl text-zinc-300 hover:text-red-300 hover:border-red-400/20 hover:bg-red-400/5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="退出登录"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -12,7 +12,7 @@ export function Skeleton({ className = '' }: SkeletonProps) {
 
 export function AnimeCardSkeleton() {
   return (
-    <div className="bg-[#121214] border border-white/5 rounded-2xl overflow-hidden">
+    <div className="surface-card-muted rounded-2xl overflow-hidden">
       <div className="aspect-[3/4] skeleton-shimmer" />
       <div className="p-4 space-y-3">
         <div className="space-y-1.5">
@@ -46,7 +46,7 @@ export function AnimeListSkeleton({ count = 6 }: { count?: number }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="flex gap-4 p-3 bg-[#121214] border border-white/5 rounded-2xl">
+        <div key={i} className="surface-card-muted flex gap-4 p-3 rounded-2xl">
           <Skeleton className="w-16 h-20 flex-shrink-0" />
           <div className="flex-1 space-y-2 py-1">
             <Skeleton className="h-4 w-3/4" />

@@ -1,8 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import mysql from 'mysql2/promise';
-import { NextResponse } from 'next/server';
 import { createDbConfig, loadDatabaseEnv, projectRoot } from '@/scripts/shared/db_env';
+import { apiError, apiSuccess } from '@/lib/api-response';
 
 type SetupStatus = {
   allowed: boolean;
@@ -128,18 +128,18 @@ async function getSetupStatus(): Promise<SetupStatus> {
 
 export async function GET() {
   const status = await getSetupStatus();
-  return NextResponse.json(status, { status: status.allowed ? 200 : 403 });
+  return apiSuccess(status, status.allowed ? 200 : 403);
 }
 
 export async function POST() {
   if (!isSetupAllowed()) {
-    return NextResponse.json({ error: '当前环境禁止通过网页初始化数据库。' }, { status: 403 });
+    return apiError('当前环境禁止通过网页初始化数据库。', 403);
   }
 
   // 防止已初始化的数据库被重复执行
   const currentStatus = await getSetupStatus();
   if (currentStatus.seeded && currentStatus.animeCount > 0) {
-    return NextResponse.json({ error: '数据库已初始化完成，不允许重复执行。如需重置请使用命令行工具。' }, { status: 409 });
+    return apiError('数据库已初始化完成，不允许重复执行。如需重置请使用命令行工具。', 409);
   }
 
   try {
@@ -152,7 +152,7 @@ export async function POST() {
     const port = Number(process.env.MYSQL_PORT || '3306');
 
     if (!databaseName || !host || !user || Number.isNaN(port) || !password) {
-      return NextResponse.json({ error: '请先完成 .env.local 里的 MySQL 配置。' }, { status: 400 });
+      return apiError('请先完成 .env.local 里的 MySQL 配置。', 400);
     }
 
     const schemaSql = await readSql('database/schema.sql');
@@ -176,9 +176,9 @@ export async function POST() {
     }
 
     const status = await getSetupStatus();
-    return NextResponse.json({ ok: true, status });
+    return apiSuccess({ ok: true, status });
   } catch (error) {
     const message = error instanceof Error ? error.message : '初始化失败';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }

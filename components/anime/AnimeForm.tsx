@@ -3,6 +3,7 @@
 import { fetchAnimeMetadata } from '@/lib/anime-provider';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { fetchJson } from '@/lib/client-api';
 import type { AnimeStatus, AnimeFormInitialData } from '@/lib/anime-shared';
 import { statusLabels } from '@/lib/dashboard-types';
 
@@ -80,25 +81,21 @@ export default function AnimeForm({
       const url = editingId ? `/api/anime/${editingId}` : '/api/anime';
       const method = editingId ? 'PATCH' : 'POST';
 
-      const res = await fetch(url, {
+            await fetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-          loadItems();
-          resetForm();
-          toast.success(editingId ? '已保存' : '已添加');
-      } else {
-          toast.error('操作失败');
-      }
-        } catch {
-      toast.error('操作失败');
+            }, '操作失败');
+            loadItems();
+            resetForm();
+            toast.success(editingId ? '已保存' : '已添加');
+                } catch (error) {
+            toast.error(error instanceof Error ? error.message : '操作失败');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-zinc-900 border border-white/5 p-6 rounded-2xl mb-8 animate-in fade-in slide-in-from-top-4 shadow-lg ring-1 ring-black/5">
+    <form onSubmit={handleSubmit} className="surface-card p-6 rounded-2xl mb-8 animate-in fade-in slide-in-from-top-4 shadow-lg ring-1 ring-black/5">
       <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-medium text-white">{editingId ? '编辑番剧' : '新番入库'}</h2>
           <button type="button" onClick={resetForm} className="text-sm text-zinc-500 hover:text-zinc-300">取消</button>
@@ -111,7 +108,7 @@ export default function AnimeForm({
                 <input 
                     value={title} onChange={e => setTitle(e.target.value)}
                     onBlur={() => { if (title && !coverUrl) fetchCover(true); }}
-                    className="w-full bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
+                    className="surface-input w-full rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
                     placeholder="例如：葬送的芙莉莲"
                 />
             </div>
@@ -119,7 +116,7 @@ export default function AnimeForm({
                  <label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wider">原名 (可选)</label>
                  <input 
                      value={originalTitle} onChange={e => setOriginalTitle(e.target.value)}
-                     className="w-full bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition font-sans text-sm text-white"
+                     className="surface-input w-full rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition font-sans text-sm text-white"
                  />
             </div>
             <div>
@@ -132,10 +129,10 @@ export default function AnimeForm({
                <div className="flex gap-2">
                    <input 
                        value={coverUrl} onChange={e => setCoverUrl(e.target.value)}
-                       className="flex-1 bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-sm font-mono text-white"
+                       className="surface-input flex-1 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-sm font-mono text-white"
                    />
                    {coverUrl && (
-                       <div className="w-10 h-11 rounded-md overflow-hidden border border-white/5 shrink-0 bg-zinc-800">
+                       <div className="surface-card-muted w-10 h-11 rounded-md overflow-hidden shrink-0">
                            {/* eslint-disable-next-line @next/next/no-img-element */}
                            <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
                        </div>
@@ -146,7 +143,7 @@ export default function AnimeForm({
                 <label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wider">标签 (逗号分隔)</label>
                 <input 
                     value={tagsInput} onChange={e => setTagsInput(e.target.value)}
-                    className="w-full bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
+                    className="surface-input w-full rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
                 />
             </div>
         </div>
@@ -157,7 +154,7 @@ export default function AnimeForm({
                     <label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wider">当前进度</label>
                     <input 
                         type="number" value={progress} onChange={e => setProgress(e.target.value)}
-                        className="w-full bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
+                        className="surface-input w-full rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
                     />
                 </div>
                 <div>
@@ -165,7 +162,7 @@ export default function AnimeForm({
                     <input 
                         type="number" value={totalEpisodes} onChange={e => setTotalEpisodes(e.target.value)}
                         placeholder="未知"
-                        className="w-full bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
+                        className="surface-input w-full rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
                     />
                 </div>
             </div>
@@ -175,14 +172,14 @@ export default function AnimeForm({
                      <input 
                          type="number" value={durationMinutes} onChange={e => setDurationMinutes(e.target.value)}
                          placeholder="24"
-                         className="w-full bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
+                         className="surface-input w-full rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
                      />
                 </div>
                  <div>
                     <label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wider">状态</label>
                     <select 
                         value={status} onChange={e => setStatus(e.target.value as AnimeStatus)}
-                        className="w-full bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition appearance-none text-white"
+                        className="surface-input w-full rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition appearance-none text-white"
                     >
                         {Object.entries(statusLabels).map(([k, v]) => (
                         <option key={k} value={k}>{v}</option>
@@ -196,14 +193,14 @@ export default function AnimeForm({
                      <label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wider">开始观看日期</label>
                      <input 
                          type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                         className="w-full bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
+                         className="surface-input w-full rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
                      />
                 </div>
                 <div>
                      <label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wider">看完日期</label>
                      <input 
                          type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                         className="w-full bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
+                         className="surface-input w-full rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition text-white"
                      />
                 </div>
             </div>
@@ -223,7 +220,7 @@ export default function AnimeForm({
                 <label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wider">备注 (AI自动补全简介)</label>
                 <textarea 
                     value={notes} onChange={e => setNotes(e.target.value)}
-                    className="w-full bg-zinc-950 border border-white/5 rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition min-h-[80px] text-white"
+                    className="surface-input w-full rounded-lg px-3 py-2.5 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition min-h-[80px] text-white"
                     rows={3}
                 />
             </div>

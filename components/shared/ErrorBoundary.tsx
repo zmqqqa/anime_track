@@ -62,7 +62,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium hover:bg-white/10 transition-all"
+                className="surface-pill px-5 py-2.5 rounded-xl text-zinc-300 text-sm font-medium hover:bg-white/10 transition-all"
               >
                 刷新页面
               </button>
